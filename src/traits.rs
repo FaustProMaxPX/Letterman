@@ -30,7 +30,7 @@ impl<E> From<BlockingError> for DbActionError<E>
 where
     E: std::error::Error,
 {
-    fn from(item: BlockingError) -> Self {
+    fn from(_item: BlockingError) -> Self {
         DbActionError::Canceled
     }
 }

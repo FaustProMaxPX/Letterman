@@ -6,37 +6,52 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[derive(Debug, Serialize, Clone)]
 pub struct Post {
     id: i64,
     post_id: i64,
     title: String,
     metadata: String,
     content: String,
-    version: i64,
-    pre_version: i64,
+    version: i32,
+    pre_version: i32,
+}
+
+impl Post {
+    pub fn new(base: BasePost, content: PostContent) -> Self {
+        Self {
+            id: base.id,
+            post_id: base.post_id,
+            title: base.title,
+            metadata: base.metadata,
+            content: content.content,
+            version: base.version,
+            pre_version: base.prev_version,
+        }
+    }
 }
 
 #[derive(Insertable, Queryable, Selectable, Debug)]
 #[diesel(table_name = crate::schema::t_post)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct BasePost {
-    id: i64,
-    post_id: i64,
-    title: String,
-    metadata: String,
-    version: i32,
-    prev_version: i32,
+    pub id: i64,
+    pub post_id: i64,
+    pub title: String,
+    pub metadata: String,
+    pub version: i32,
+    pub prev_version: i32,
 }
 
-#[derive(Insertable, Queryable, Selectable, Debug)]
+#[derive(Insertable, Queryable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_post_content)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct PostContent {
-    id: i64,
-    post_id: i64,
-    version: i32,
-    content: String,
-    prev_version: i32,
+    pub id: i64,
+    pub post_id: i64,
+    pub version: i32,
+    pub content: String,
+    pub prev_version: i32,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -48,8 +63,8 @@ pub struct CreatePostReq {
 
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub struct ValidateCreatePostError {
-    pub field: String,
-    pub msg: String,
+    pub field: &'static str,
+    pub msg: &'static str,
 }
 
 impl std::fmt::Display for ValidateCreatePostError {
@@ -75,30 +90,30 @@ impl Validate for CreatePostReq {
     fn validate(self) -> Result<Self::Item, Self::Error> {
         if self.title.trim().is_empty() {
             return Err(ValidateCreatePostError {
-                field: "title".to_string(),
-                msg: "cannot be empty".to_string(),
+                field: "title",
+                msg: "cannot be empty",
             });
         }
 
         if self.title.len() > 255 {
             return Err(ValidateCreatePostError {
-                field: "title".to_string(),
-                msg: "cannot be longer than 255 characters".to_string(),
+                field: "title",
+                msg: "cannot be longer than 255 characters",
             });
         }
 
         if self.metadata.len() > 255 {
             return Err(ValidateCreatePostError {
-                field: "metadata".to_string(),
-                msg: "cannot be longer than 255 characters".to_string(),
+                field: "metadata",
+                msg: "cannot be longer than 255 characters",
             });
         }
 
         if let Err(e) = serde_json::from_str::<Value>(&self.metadata) {
             error!("failed to parse json:{}, error: {e}", &self.metadata);
             return Err(ValidateCreatePostError {
-                field: "metadata".to_string(),
-                msg: "failed to parse metadata, please make sure it's a json".to_string(),
+                field: "metadata",
+                msg: "failed to parse metadata, please make sure it's a json",
             });
         }
 
@@ -145,7 +160,21 @@ pub enum CreatePostError {
 }
 
 impl From<diesel::result::Error> for CreatePostError {
-    fn from(_: diesel::result::Error) -> Self {
+    fn from(e: diesel::result::Error) -> Self {
+        error!("create post error: database error, e: {e}");
         CreatePostError::Database
+    }
+}
+
+#[derive(Debug, Error, Clone, Serialize, Display)]
+pub enum QueryPostError {
+    #[display(fmt = "database error")]
+    Database,
+}
+
+impl From<diesel::result::Error> for QueryPostError {
+    fn from(item: diesel::result::Error) -> Self {
+        error!("query post error: database error, e: {item}");
+        QueryPostError::Database
     }
 }

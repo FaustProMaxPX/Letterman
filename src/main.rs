@@ -8,12 +8,17 @@ pub mod utils;
 use std::{env, error::Error};
 
 use actix_web::{
-    middleware::Logger, web::{post, resource, scope, Data}, App, HttpServer
+    middleware::Logger,
+    web::{get, post, resource, scope, Data},
+    App, HttpServer,
 };
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 
 use r2d2::Pool;
-use routes::{common::ping, posts::create};
+use routes::{
+    common::ping,
+    posts::{create, get_list},
+};
 
 #[macro_use]
 extern crate derive_more;
@@ -54,7 +59,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .allow_any_method()
                     .allow_any_origin(),
             )
-            .service(scope("/api/posts").service(resource("").route(post().to(create))))
+            .service(
+                scope("/api/posts")
+                    .service(resource("/list").route(get().to(get_list)))
+                    .service(resource("").route(post().to(create)))
+            )
             .service(ping)
     })
     .bind(("127.0.0.1", 8080))?
