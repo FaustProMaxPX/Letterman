@@ -2,7 +2,7 @@ use diesel::{Connection, RunQueryDsl};
 
 use crate::{traits::DbAction, types::posts::{CreatePostError, ValidatedPostCreation}};
 
-pub struct PostCreator(ValidatedPostCreation);
+pub struct PostCreator(pub ValidatedPostCreation);
 
 impl DbAction for PostCreator {
     type Item = usize;

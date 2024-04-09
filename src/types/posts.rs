@@ -1,13 +1,9 @@
 use std::fmt::{self, Formatter};
 
-use diesel::{deserialize::Queryable, prelude::Insertable, Connection, RunQueryDsl, Selectable};
+use diesel::{deserialize::Queryable, prelude::Insertable, Selectable};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    routes::posts::PostError,
-    traits::{DbAction, Validate},
-    utils::Snowflake,
-};
+use crate::{routes::posts::PostResponseError, traits::Validate, utils::Snowflake};
 
 pub struct Post {
     id: i64,
@@ -61,9 +57,9 @@ impl std::fmt::Display for ValidateCreatePostError {
     }
 }
 
-impl From<ValidateCreatePostError> for PostError {
+impl From<ValidateCreatePostError> for PostResponseError {
     fn from(item: ValidateCreatePostError) -> Self {
-        PostError::ValidationError {
+        PostResponseError::ValidationError {
             field: item.field,
             msg: item.msg,
         }
@@ -133,8 +129,6 @@ impl ValidatedPostCreation {
     }
 }
 
-
-
 #[derive(Debug, Error, Clone, Serialize, Display)]
 pub enum CreatePostError {
     #[display(fmt = "database error")]
@@ -146,5 +140,3 @@ impl From<diesel::result::Error> for CreatePostError {
         CreatePostError::Database
     }
 }
-
-

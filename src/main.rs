@@ -1,15 +1,19 @@
+pub mod operations;
 pub mod routes;
 pub mod schema;
 pub mod traits;
 pub mod types;
 pub mod utils;
-mod operations;
 
 use std::{env, error::Error};
 
-use actix_web::{web::Data, App, HttpServer};
+use actix_web::{
+    web::{post, resource, scope, Data},
+    App, HttpServer,
+};
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
+use routes::posts::create;
 
 #[macro_use]
 extern crate derive_more;
@@ -34,12 +38,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     HttpServer::new(move || {
         let state = State { pool: pool.clone() };
 
-        App::new().app_data(Data::new(state)).wrap(
-            actix_cors::Cors::default()
-                .allow_any_header()
-                .allow_any_method()
-                .allow_any_origin(),
-        )
+        App::new()
+            .app_data(Data::new(state))
+            .wrap(
+                actix_cors::Cors::default()
+                    .allow_any_header()
+                    .allow_any_method()
+                    .allow_any_origin(),
+            )
+            .service(scope("/api/posts").service(resource("").route(post().to(create))))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
