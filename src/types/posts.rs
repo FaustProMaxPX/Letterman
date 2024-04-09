@@ -1,10 +1,10 @@
 use std::fmt::{self, Formatter};
 
+use crate::{routes::posts::PostResponseError, traits::Validate, utils::Snowflake};
 use diesel::{deserialize::Queryable, prelude::Insertable, Selectable};
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::{routes::posts::PostResponseError, traits::Validate, utils::Snowflake};
 
 pub struct Post {
     id: i64,
@@ -95,6 +95,7 @@ impl Validate for CreatePostReq {
         }
 
         if let Err(e) = serde_json::from_str::<Value>(&self.metadata) {
+            error!("failed to parse json:{}, error: {e}", &self.metadata);
             return Err(ValidateCreatePostError {
                 field: "metadata".to_string(),
                 msg: "failed to parse metadata, please make sure it's a json".to_string(),

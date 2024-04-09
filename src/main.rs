@@ -8,12 +8,12 @@ pub mod utils;
 use std::{env, error::Error};
 
 use actix_web::{
-    web::{post, resource, scope, Data},
-    App, HttpServer,
+    middleware::Logger, web::{post, resource, scope, Data}, App, HttpServer
 };
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
+
 use r2d2::Pool;
-use routes::posts::create;
+use routes::{common::ping, posts::create};
 
 #[macro_use]
 extern crate derive_more;
@@ -28,18 +28,26 @@ pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<d
     Ok(pool)
 }
 
+fn init_logger() {
+    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("RUST_BACKTRACE", "1");
+    env_logger::init();
+}
+
 struct State {
     pub pool: Pool<ConnectionManager<MysqlConnection>>,
 }
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    init_logger();
     let pool = database_pool()?;
     HttpServer::new(move || {
         let state = State { pool: pool.clone() };
 
         App::new()
             .app_data(Data::new(state))
+            .wrap(Logger::default())
             .wrap(
                 actix_cors::Cors::default()
                     .allow_any_header()
@@ -47,6 +55,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .allow_any_origin(),
             )
             .service(scope("/api/posts").service(resource("").route(post().to(create))))
+            .service(ping)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

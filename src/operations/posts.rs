@@ -14,7 +14,6 @@ impl DbAction for PostCreator {
         conn: &mut diesel::prelude::MysqlConnection,
     ) -> Result<Self::Item, Self::Error> {
         let (post, content) = self.0.to_post_po();
-        println!("post: {:?}, content: {:?}", post, content);
         conn.transaction(|conn| {
             diesel::insert_into(crate::schema::t_post::table)
                 .values(&post)
