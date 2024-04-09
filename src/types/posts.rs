@@ -2,6 +2,7 @@ use std::fmt::{self, Formatter};
 
 use diesel::{deserialize::Queryable, prelude::Insertable, Selectable};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{routes::posts::PostResponseError, traits::Validate, utils::Snowflake};
 
@@ -90,6 +91,13 @@ impl Validate for CreatePostReq {
             return Err(ValidateCreatePostError {
                 field: "metadata".to_string(),
                 msg: "cannot be longer than 255 characters".to_string(),
+            });
+        }
+
+        if let Err(e) = serde_json::from_str::<Value>(&self.metadata) {
+            return Err(ValidateCreatePostError {
+                field: "metadata".to_string(),
+                msg: "failed to parse metadata, please make sure it's a json".to_string(),
             });
         }
 
