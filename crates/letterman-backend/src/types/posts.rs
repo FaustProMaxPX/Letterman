@@ -1,12 +1,18 @@
 use std::fmt::{self, Formatter};
 
-use crate::{routes::posts::PostResponseError, traits::Validate, utils::Snowflake};
+use crate::{
+    routes::posts::PostResponseError,
+    traits::Validate,
+    utils::{Snowflake, TimeUtil},
+};
+use chrono::NaiveDateTime;
 use diesel::{deserialize::Queryable, prelude::Insertable, Selectable};
 use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Post {
     id: i64,
     post_id: i64,
@@ -15,6 +21,8 @@ pub struct Post {
     content: String,
     version: i32,
     pre_version: i32,
+    create_time: NaiveDateTime,
+    update_time: NaiveDateTime,
 }
 
 impl Post {
@@ -27,6 +35,8 @@ impl Post {
             content: content.content,
             version: base.version,
             pre_version: base.prev_version,
+            create_time: base.create_time,
+            update_time: base.update_time,
         }
     }
 }
@@ -41,6 +51,8 @@ pub struct BasePost {
     pub metadata: String,
     pub version: i32,
     pub prev_version: i32,
+    pub create_time: NaiveDateTime,
+    pub update_time: NaiveDateTime,
 }
 
 #[derive(Insertable, Queryable, Debug, Clone)]
@@ -52,6 +64,8 @@ pub struct PostContent {
     pub version: i32,
     pub content: String,
     pub prev_version: i32,
+    pub create_time: NaiveDateTime,
+    pub update_time: NaiveDateTime,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -140,6 +154,8 @@ impl ValidatedPostCreation {
             metadata: self.metadata,
             version: 1,
             prev_version: 0,
+            create_time: TimeUtil::now(),
+            update_time: TimeUtil::now(),
         };
 
         let content = PostContent {
@@ -148,6 +164,8 @@ impl ValidatedPostCreation {
             version: 1,
             content: self.content,
             prev_version: 0,
+            create_time: TimeUtil::now(),
+            update_time: TimeUtil::now(),
         };
         (post, content)
     }

@@ -10,6 +10,8 @@ diesel::table! {
         metadata -> Varchar,
         version -> Integer,
         prev_version -> Integer,
+        create_time -> Timestamp,
+        update_time -> Timestamp,
     }
 }
 
@@ -20,6 +22,8 @@ diesel::table! {
         version -> Integer,
         content -> Text,
         prev_version -> Integer,
+        create_time -> Timestamp,
+        update_time -> Timestamp,
     }
 }
 

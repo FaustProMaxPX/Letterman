@@ -45,6 +45,7 @@ impl<T> CommonResult<T> {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PageReq {
     pub page: i32,
     pub page_size: i32,
