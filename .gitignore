@@ -26,3 +26,4 @@ dist-ssr
 crates/letterman-backend/migrations
 target
 .env
+src/*.preview
