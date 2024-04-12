@@ -44,7 +44,7 @@ export const PostPage = () => {
   useEffect(() => {
     getPostPage(DEFAULT_PAGE, DEFAULT_PAGE_SIZE)
       .then((data) => {
-        setPosts(data.data);
+        setPosts(data);
       })
       .catch((error) => {
         openMessage(error.message, 3000);
@@ -73,7 +73,7 @@ export const PostPage = () => {
         disableRowSelectionOnClick
         onPaginationModelChange={(newModel) => {
           getPostPage(newModel.page, newModel.pageSize).then((data) => {
-            setPosts(data.data);
+            setPosts(data);
           });
         }}
       ></DataGrid>
