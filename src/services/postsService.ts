@@ -6,6 +6,7 @@ export const getPostPage = async (
   page: number,
   pageSize: number
 ): Promise<CommonResult<Page<Post>>> => {
+  
   const { data } = await axios.get<CommonResult<Page<Post>>>(
     `${BASE_URL}/api/posts/list`,
     {

@@ -7,6 +7,7 @@ import ArticleIcon from "@mui/icons-material/Article";
 import { Link } from "react-router-dom";
 import { styled } from "@mui/material";
 
+// eslint-disable-next-line react-refresh/only-export-components
 const NavLink = styled(Link)({
   textDecoration: "none",
   color: "inherit",

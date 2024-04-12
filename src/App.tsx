@@ -16,8 +16,11 @@ import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
 import { useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Dashboard } from "./components/dashboard";
-import { PostPage } from "./components/PostPage";
+import { PostPage } from "./components/postPage";
 import { mainListItems } from "./listItems";
+import { ErrorBoundary } from "react-error-boundary";
+import { ErrorDisplay } from "./components/errorPage";
+import Notification from "./components/notification";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
@@ -136,10 +139,13 @@ const App = () => {
           >
             <Toolbar />
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/posts" element={<PostPage />} />
-              </Routes>
+              <Notification />
+              <ErrorBoundary FallbackComponent={ErrorDisplay}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/posts" element={<PostPage />} />
+                </Routes>
+              </ErrorBoundary>
             </Container>
           </Box>
         </Box>

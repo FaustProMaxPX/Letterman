@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
-import { getPostPage } from "../services/postsService";
-import { EMPTY_PAGE, Page, Post } from "../types";
-import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
-import { formatDate } from "../utils/time-util";
-import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../constants";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import { useEffect, useState } from "react";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../../constants";
+import { getPostPage } from "../../services/postsService";
+import { EMPTY_PAGE, Page, Post } from "../../types";
+import { formatDate } from "../../utils/time-util";
+import useMessage from "../../hooks/useMessage";
 
 const columns: GridColDef[] = [
   {
@@ -17,11 +18,11 @@ const columns: GridColDef[] = [
     headerName: "内容",
     minWidth: 400,
   },
-  {
-    field: "metadata",
-    headerName: "元数据",
-    minWidth: 200,
-  },
+  // {
+  //   field: "metadata",
+  //   headerName: "元数据",
+  //   minWidth: 200,
+  // },
   {
     field: "version",
     headerName: "版本",
@@ -39,12 +40,17 @@ const columns: GridColDef[] = [
 
 export const PostPage = () => {
   const [posts, setPosts] = useState<Page<Post>>(EMPTY_PAGE);
+  const openMessage = useMessage();
   useEffect(() => {
-    getPostPage(DEFAULT_PAGE, DEFAULT_PAGE_SIZE).then((data) => {
-      setPosts(data.data);
-    });
-  }, []);
-  
+    getPostPage(DEFAULT_PAGE, DEFAULT_PAGE_SIZE)
+      .then((data) => {
+        setPosts(data.data);
+      })
+      .catch((error) => {
+        openMessage(error.message, 3000);
+      });
+  }, [openMessage]);
+
   return (
     <Box
       sx={{ minHeight: 300, width: "100%", flexGrow: 1, overflow: "hidden" }}
@@ -61,6 +67,7 @@ export const PostPage = () => {
           },
         }}
         pageSizeOptions={[1, 5, 10]}
+        paginationMode="server"
         checkboxSelection
         autoHeight
         disableRowSelectionOnClick
