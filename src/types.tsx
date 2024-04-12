@@ -24,7 +24,8 @@ export const EMPTY_PAGE: Page<any> = {
 };
 
 export interface CommonResult<T> {
+  success: boolean;
   code: number;
-  msg: string;
+  message: string;
   data: T;
 }

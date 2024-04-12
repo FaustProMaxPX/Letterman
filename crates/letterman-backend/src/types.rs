@@ -6,6 +6,7 @@ pub mod posts;
 
 #[derive(Serialize)]
 pub struct CommonResult<T> {
+    pub success: bool,
     pub code: i32,
     pub msg: String,
     pub data: T,
@@ -14,33 +15,36 @@ pub struct CommonResult<T> {
 impl<T> CommonResult<T> {
     pub fn success() -> CommonResult<()> {
         CommonResult {
+            success: true,
             code: 0,
             msg: "OK".to_string(),
             data: (),
         }
     }
-    pub fn with_msg(code: i32, msg: &str) -> CommonResult<()> {
+    pub fn with_msg(success: bool, code: i32, msg: &str) -> CommonResult<()> {
         CommonResult {
+            success,
             msg: msg.to_string(),
             data: (),
             code,
         }
     }
-    pub fn with_data(code: i32, msg: &str, data: T) -> CommonResult<T> {
+    pub fn with_data(success: bool, code: i32, msg: &str, data: T) -> CommonResult<T> {
         CommonResult {
+            success,
             msg: msg.to_string(),
             data,
             code,
         }
     }
     pub fn success_with_data(data: T) -> CommonResult<T> {
-        CommonResult::with_data(0, "OK", data)
+        CommonResult::with_data(true, 0, "OK", data)
     }
     pub fn fail() -> CommonResult<()> {
-        CommonResult::<()>::with_msg(1, "fail")
+        CommonResult::<()>::with_msg(false, 1, "fail")
     }
     pub fn fail_with_msg(msg: &str) -> CommonResult<()> {
-        CommonResult::<()>::with_msg(1, msg)
+        CommonResult::<()>::with_msg(false, 1, msg)
     }
 }
 
