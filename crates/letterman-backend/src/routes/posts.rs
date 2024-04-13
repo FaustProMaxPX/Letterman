@@ -2,9 +2,9 @@ use actix_web::web::{Data, Json, Query};
 use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
 
-use crate::operations::posts::{PostCreator, PostPageQueryer};
+use crate::operations::posts::{PostCreator, PostPageQueryer, PostUpdater};
 use crate::traits::{DbAction, DbActionError, Validate};
-use crate::types::posts::{CreatePostError, QueryPostError};
+use crate::types::posts::{CreatePostError, QueryPostError, UpdatePostError, UpdatePostReq};
 use crate::types::{PageReq, PageValidationError};
 use crate::{
     types::{posts::CreatePostReq, CommonResult},
@@ -17,6 +17,10 @@ pub enum PostResponseError {
     ValidationError {
         field: &'static str,
         msg: &'static str,
+    },
+    #[display(fmt = "{msg}")]
+    UserError {
+        msg: String,
     },
     Pool(r2d2::Error),
     Canceled,
@@ -35,6 +39,7 @@ impl ResponseError for PostResponseError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match *self {
             Self::ValidationError { .. } => StatusCode::BAD_REQUEST,
+            Self::UserError { .. } => StatusCode::OK,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -60,13 +65,29 @@ impl From<DbActionError<QueryPostError>> for PostResponseError {
     }
 }
 
+impl From<DbActionError<UpdatePostError>> for PostResponseError {
+    fn from(item: DbActionError<UpdatePostError>) -> Self {
+        match item {
+            DbActionError::Error(e) => match e {
+                UpdatePostError::Database => PostResponseError::Other(e.to_string()),
+                UpdatePostError::NotFound => PostResponseError::UserError { msg: e.to_string() },
+                UpdatePostError::NotLatestVersion => {
+                    PostResponseError::UserError { msg: e.to_string() }
+                }
+            },
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
 pub(crate) async fn create(
     state: Data<State>,
     req: Json<CreatePostReq>,
 ) -> Result<HttpResponse, PostResponseError> {
     let req = req.into_inner();
     let validated_param = req.validate()?;
-    let _ = PostCreator(validated_param)
+    PostCreator(validated_param)
         .execute(state.pool.clone())
         .await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
@@ -80,6 +101,18 @@ pub(crate) async fn get_list(
     let req = req.validate()?;
     let page = PostPageQueryer(req).execute(state.pool.clone()).await?;
     Ok(HttpResponse::Ok().json(CommonResult::success_with_data(page)))
+}
+
+pub(crate) async fn update(
+    state: Data<State>,
+    req: Json<UpdatePostReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let req = req.into_inner();
+    let validated_param = req.validate()?;
+    let post = PostUpdater(validated_param)
+        .execute(state.pool.clone())
+        .await?;
+    Ok(HttpResponse::Ok().json(CommonResult::success_with_data(post)))
 }
 
 impl From<PageValidationError> for PostResponseError {

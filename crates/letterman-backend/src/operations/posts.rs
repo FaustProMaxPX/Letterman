@@ -1,17 +1,18 @@
 use diesel::{
-    BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl,
-    RunQueryDsl,
+    BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl, RunQueryDsl,
 };
 
 use crate::{
-    schema::t_post_content,
+    schema::{self, t_post_content},
     traits::DbAction,
     types::{
         posts::{
-            BasePost, CreatePostError, Post, PostContent, QueryPostError, ValidatedPostCreation,
+            BasePost, CreatePostError, Post, PostContent, QueryPostError, UpdatePostError,
+            ValidatedPostCreation, ValidatedPostUpdate,
         },
         Page, PageReq,
     },
+    utils::{Snowflake, TimeUtil},
 };
 
 use super::pagination::Paginate;
@@ -19,7 +20,7 @@ use super::pagination::Paginate;
 pub struct PostCreator(pub ValidatedPostCreation);
 
 impl DbAction for PostCreator {
-    type Item = usize;
+    type Item = ();
 
     type Error = CreatePostError;
 
@@ -28,15 +29,8 @@ impl DbAction for PostCreator {
         conn: &mut diesel::prelude::MysqlConnection,
     ) -> Result<Self::Item, Self::Error> {
         let (post, content) = self.0.to_post_po();
-        conn.transaction(|conn| {
-            diesel::insert_into(crate::schema::t_post::table)
-                .values(&post)
-                .execute(conn)?;
-            diesel::insert_into(crate::schema::t_post_content::table)
-                .values(&content)
-                .execute(conn)
-        })
-        .map_err(CreatePostError::from)
+
+        insert_post(conn, post, content).map_err(CreatePostError::from)
     }
 }
 
@@ -83,6 +77,67 @@ impl DbAction for PostPageQueryer {
 
         Ok(Page::new(total, self.0.page, page, self.0.page_size))
     }
+}
+
+pub struct PostUpdater(pub ValidatedPostUpdate);
+
+impl DbAction for PostUpdater {
+    type Item = Post;
+
+    type Error = UpdatePostError;
+
+    fn db_action(
+        self,
+        conn: &mut diesel::prelude::MysqlConnection,
+    ) -> Result<Self::Item, Self::Error> {
+        let prev: BasePost = schema::t_post::table.find(self.0.id).first(conn)?;
+        let prev_latest: BasePost = schema::t_post::table
+            .filter(schema::t_post::post_id.eq(prev.post_id))
+            .order_by(schema::t_post::version.desc())
+            .first(conn)?;
+        if prev_latest.version != prev.version {
+            return Err(UpdatePostError::NotLatestVersion);
+        }
+        let new_version = prev.version + 1;
+        let base = BasePost {
+            id: Snowflake::next_id(),
+            post_id: prev.post_id,
+            title: self.0.title,
+            metadata: self.0.metadata,
+            version: new_version,
+            prev_version: prev.version,
+            create_time: prev.create_time,
+            update_time: TimeUtil::now(),
+        };
+        let content = PostContent {
+            id: Snowflake::next_id(),
+            post_id: prev.post_id,
+            version: new_version,
+            content: self.0.content,
+            prev_version: prev.version,
+            create_time: prev.create_time,
+            update_time: TimeUtil::now(),
+        };
+
+        insert_post(conn, base.clone(), content.clone())?;
+        Ok(Post::new(base, content))
+    }
+}
+
+fn insert_post(
+    conn: &mut MysqlConnection,
+    post: BasePost,
+    content: PostContent,
+) -> Result<(), diesel::result::Error> {
+    conn.transaction(|conn| {
+        diesel::insert_into(crate::schema::t_post::table)
+            .values(&post)
+            .execute(conn)?;
+        diesel::insert_into(crate::schema::t_post_content::table)
+            .values(&content)
+            .execute(conn)
+    })?;
+    Ok(())
 }
 
 #[cfg(test)]

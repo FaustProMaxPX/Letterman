@@ -11,10 +11,20 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::{deserialize_from_string, serialize_as_string};
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Post {
+    #[serde(
+        serialize_with = "serialize_as_string",
+        deserialize_with = "deserialize_from_string"
+    )]
     id: i64,
+    #[serde(
+        serialize_with = "serialize_as_string",
+        deserialize_with = "deserialize_from_string"
+    )]
     post_id: i64,
     title: String,
     metadata: Value,
@@ -41,7 +51,7 @@ impl Post {
     }
 }
 
-#[derive(Insertable, Queryable, Selectable, Debug)]
+#[derive(Insertable, Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_post)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct BasePost {
@@ -68,27 +78,39 @@ pub struct PostContent {
     pub update_time: NaiveDateTime,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePostReq {
     title: String,
     metadata: String,
     content: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdatePostReq {
+    #[serde(
+        serialize_with = "serialize_as_string",
+        deserialize_with = "deserialize_from_string"
+    )]
+    id: i64,
+    title: String,
+    metadata: String,
+    content: String,
+}
+
 #[derive(Debug, Error, Serialize, Deserialize)]
-pub struct ValidateCreatePostError {
+pub struct ValidateManipulatePostError {
     pub field: &'static str,
     pub msg: &'static str,
 }
 
-impl std::fmt::Display for ValidateCreatePostError {
+impl std::fmt::Display for ValidateManipulatePostError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}: {}", self.field, self.msg)
     }
 }
 
-impl From<ValidateCreatePostError> for PostResponseError {
-    fn from(item: ValidateCreatePostError) -> Self {
+impl From<ValidateManipulatePostError> for PostResponseError {
+    fn from(item: ValidateManipulatePostError) -> Self {
         PostResponseError::ValidationError {
             field: item.field,
             msg: item.msg,
@@ -99,44 +121,75 @@ impl From<ValidateCreatePostError> for PostResponseError {
 impl Validate for CreatePostReq {
     type Item = ValidatedPostCreation;
 
-    type Error = ValidateCreatePostError;
+    type Error = ValidateManipulatePostError;
 
     fn validate(self) -> Result<Self::Item, Self::Error> {
-        if self.title.trim().is_empty() {
-            return Err(ValidateCreatePostError {
-                field: "title",
-                msg: "cannot be empty",
-            });
-        }
-
-        if self.title.len() > 255 {
-            return Err(ValidateCreatePostError {
-                field: "title",
-                msg: "cannot be longer than 255 characters",
-            });
-        }
-
-        if self.metadata.len() > 255 {
-            return Err(ValidateCreatePostError {
-                field: "metadata",
-                msg: "cannot be longer than 255 characters",
-            });
-        }
-
-        if let Err(e) = serde_json::from_str::<Value>(&self.metadata) {
-            error!("failed to parse json:{}, error: {e}", &self.metadata);
-            return Err(ValidateCreatePostError {
-                field: "metadata",
-                msg: "failed to parse metadata, please make sure it's a json",
-            });
-        }
-
+        validate_post_data(&self.title, &self.metadata, &self.content)?;
         Ok(ValidatedPostCreation {
             title: self.title,
             metadata: self.metadata,
             content: self.content,
         })
     }
+}
+
+impl Validate for UpdatePostReq {
+    type Item = ValidatedPostUpdate;
+
+    type Error = ValidateManipulatePostError;
+
+    fn validate(self) -> Result<Self::Item, Self::Error> {
+        validate_post_data(&self.title, &self.metadata, &self.content)?;
+        Ok(ValidatedPostUpdate {
+            id: self.id,
+            title: self.title,
+            metadata: self.metadata,
+            content: self.content,
+        })
+    }
+}
+
+fn validate_post_data(
+    title: &str,
+    metadata: &str,
+    content: &str,
+) -> Result<(), ValidateManipulatePostError> {
+    if title.trim().is_empty() {
+        return Err(ValidateManipulatePostError {
+            field: "title",
+            msg: "cannot be empty",
+        });
+    }
+
+    if title.len() > 255 {
+        return Err(ValidateManipulatePostError {
+            field: "title",
+            msg: "cannot be longer than 255 characters",
+        });
+    }
+
+    if metadata.len() > 255 {
+        return Err(ValidateManipulatePostError {
+            field: "metadata",
+            msg: "cannot be longer than 255 characters",
+        });
+    }
+
+    if let Err(e) = serde_json::from_str::<Value>(metadata) {
+        error!("failed to parse json:{}, error: {e}", metadata);
+        return Err(ValidateManipulatePostError {
+            field: "metadata",
+            msg: "failed to parse metadata, please make sure it's a json",
+        });
+    }
+    Ok(())
+}
+
+pub struct ValidatedPostUpdate {
+    pub(crate) id: i64,
+    pub(crate) title: String,
+    pub(crate) metadata: String,
+    pub(crate) content: String,
 }
 
 pub struct ValidatedPostCreation {
@@ -194,5 +247,26 @@ impl From<diesel::result::Error> for QueryPostError {
     fn from(item: diesel::result::Error) -> Self {
         error!("query post error: database error, e: {item}");
         QueryPostError::Database
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Display)]
+pub enum UpdatePostError {
+    #[display(fmt = "database error")]
+    Database,
+    #[display(fmt = "not found post ")]
+    NotFound,
+    #[display(fmt = "you're not operating the latest version of the post")]
+    NotLatestVersion,
+}
+
+impl std::error::Error for UpdatePostError {}
+
+impl From<diesel::result::Error> for UpdatePostError {
+    fn from(item: diesel::result::Error) -> Self {
+        match item {
+            diesel::result::Error::NotFound => UpdatePostError::NotFound,
+            _ => UpdatePostError::Database,
+        }
     }
 }

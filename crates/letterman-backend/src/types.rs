@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::traits::Validate;
 
@@ -105,4 +105,18 @@ impl<T> Page<T> {
             data,
         }
     }
+}
+
+fn serialize_as_string<S>(x: &i64, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&x.to_string())
+}
+fn deserialize_from_string<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse::<i64>().map_err(serde::de::Error::custom)
 }

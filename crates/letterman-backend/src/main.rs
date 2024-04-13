@@ -9,7 +9,7 @@ use std::{env, error::Error};
 
 use actix_web::{
     middleware::Logger,
-    web::{get, post, resource, scope, Data},
+    web::{get, post, put, resource, scope, Data},
     App, HttpServer,
 };
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
@@ -17,7 +17,7 @@ use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
 use routes::{
     common::ping,
-    posts::{create, get_list},
+    posts::{create, get_list, update},
 };
 
 #[macro_use]
@@ -62,7 +62,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .service(
                 scope("/api/posts")
                     .service(resource("/list").route(get().to(get_list)))
-                    .service(resource("").route(post().to(create)))
+                    .service(
+                        resource("")
+                            .route(post().to(create))
+                            .route(put().to(update)),
+                    ),
             )
             .service(ping)
     })
