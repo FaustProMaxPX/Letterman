@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AxiosResponse } from "axios";
+import axios, { AxiosResponse } from "axios";
 import { CommonResult } from "../../types";
 
 export const transformResponse = <T = any>(
@@ -15,4 +15,11 @@ export const transformResponse = <T = any>(
   } else {
     throw new Error(`${response.status}: ${response.statusText}`);
   }
+};
+
+export const formatErrorMessage = (e: Error) => {
+  if (axios.isAxiosError(e)) {
+    return `${e.response?.status}: ${e.response?.statusText}`;
+  }
+  return e.message;
 };

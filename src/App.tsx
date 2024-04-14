@@ -21,6 +21,7 @@ import { mainListItems } from "./listItems";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorDisplay } from "./components/errorPage";
 import Notification from "./components/notification";
+import { PostForm } from "./components/postForm";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {

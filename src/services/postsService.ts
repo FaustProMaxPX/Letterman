@@ -2,6 +2,7 @@ import { transformResponse } from "./utils/transform-response";
 import axios from "axios";
 import { CommonResult, Page, Post } from "../types";
 import { BASE_URL } from "../constants";
+import { CreatePostReq } from "./requests/posts";
 
 export const getPostPage = async (
   page: number,
@@ -13,5 +14,13 @@ export const getPostPage = async (
       params: { page, pageSize },
     }
   );
+  return transformResponse(data);
+};
+
+export const createPost = async (post: CreatePostReq) => {
+  const data = await axios.post<CommonResult<null>>(`${BASE_URL}/api/posts`, {
+    ...post,
+    metadata: JSON.stringify(post.metadata),
+  });
   return transformResponse(data);
 };

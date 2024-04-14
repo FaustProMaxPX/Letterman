@@ -6,6 +6,7 @@ import { getPostPage } from "../../services/postsService";
 import { EMPTY_PAGE, Page, Post } from "../../types";
 import { formatDate } from "../../utils/time-util";
 import useMessage from "../../hooks/useMessage";
+import { formatErrorMessage } from "../../services/utils/transform-response";
 
 const columns: GridColDef[] = [
   {
@@ -47,7 +48,7 @@ export const PostPage = () => {
         setPosts(data);
       })
       .catch((error) => {
-        openMessage(error.message, 3000);
+        openMessage(formatErrorMessage(error));
       });
   }, [openMessage]);
 

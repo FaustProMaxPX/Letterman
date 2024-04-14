@@ -2,11 +2,13 @@ export interface Post {
   id: string;
   title: string;
   content: string;
-  metadata: unknown;
+  metadata: JSON;
   version: number;
   preVersion: number;
   createTime: Date;
 }
+
+export type BasePost = Omit<Post, "content">;
 
 export interface Page<T> {
   total: number;
