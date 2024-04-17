@@ -9,7 +9,7 @@ export const getPostPage = async (
   pageSize: number
 ): Promise<Page<Post>> => {
   const data = await axios.get<CommonResult<Page<Post>>>(
-    `${BASE_URL}/api/posts/list`,
+    `${BASE_URL}/api/post/list`,
     {
       params: { page, pageSize },
     }
@@ -18,7 +18,7 @@ export const getPostPage = async (
 };
 
 export const createPost = async (post: CreatePostReq) => {
-  const data = await axios.post<CommonResult<null>>(`${BASE_URL}/api/posts`, {
+  const data = await axios.post<CommonResult<null>>(`${BASE_URL}/api/post`, {
     ...post,
     metadata: JSON.stringify(post.metadata),
   });

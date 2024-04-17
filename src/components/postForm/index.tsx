@@ -37,7 +37,7 @@ export const PostForm = () => {
           openMessage(formatErrorMessage(e));
         });
     }
-  });
+  }, [id]);
 
   const openMessage = useMessage();
 
