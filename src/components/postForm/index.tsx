@@ -7,6 +7,10 @@ import { useNavigate } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import CreateIcon from "@mui/icons-material/Create";
 import { formatErrorMessage } from "../../services/utils/transform-response";
+import ReactMarkdown from "react-markdown";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditIcon from "@mui/icons-material/Edit";
+import Markdown from "react-markdown";
 export interface PostFormProps {
   post?: Post;
 }
@@ -17,6 +21,8 @@ export const PostForm = ({ post }: PostFormProps) => {
   const [content, setContent] = useState(
     post === undefined ? "" : post.content
   );
+  const [preview, setPreview] = useState(false);
+
   const openMessage = useMessage();
 
   const handlePostSubmit = (e: React.FormEvent) => {
@@ -48,26 +54,33 @@ export const PostForm = ({ post }: PostFormProps) => {
               }}
               elevation={3}
             >
-              <TextField
+              <FormField
                 id="title"
                 label="标题"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                value={post?.title}
+                value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                validation={(value) => {
+                  if (value === undefined) {
+                    return false;
+                  } else if (value.length === 0) {
+                    return false;
+                  } else {
+                    return true;
+                  }
+                }}
+                errorText="标题不能为空"
               />
-              <TextField
-                id="content"
-                label="内容"
-                variant="outlined"
-                multiline
-                rows={20}
-                fullWidth
-                margin="normal"
-                value={post?.content}
-                onChange={(e) => setContent(e.target.value)}
-              />
+              {!preview && (
+                <FormField
+                  id="content"
+                  label="内容"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  multiline={true}
+                  rows={20}
+                />
+              )}
+              {preview && (<Markdown>{content}</Markdown>)}
             </Paper>
           </Grid>
           <Grid item xs={12} md={4} lg={3} sx={{ mt: 3 }}>
@@ -118,7 +131,66 @@ export const PostForm = ({ post }: PostFormProps) => {
         >
           提交
         </Button>
+        {!preview && (
+          <Button
+            variant="contained"
+            startIcon={<VisibilityIcon />}
+            onClick={() => setPreview(true)}
+            sx={{ mt: 3, ml: 1 }}
+          >
+            预览
+          </Button>
+        )}
+        {preview && (
+          <Button
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={() => setPreview(false)}
+            sx={{ mt: 3, ml: 1 }}
+          >
+            编辑
+          </Button>
+        )}
       </form>
     </React.Fragment>
+  );
+};
+
+interface FormFieldProps {
+  id: string;
+  label: string;
+  value?: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  rows?: number;
+  multiline?: boolean;
+  errorText?: string;
+  validation?: (value: string | undefined) => boolean;
+}
+
+const FormField = (props: FormFieldProps) => {
+  const [error, setError] = useState(false);
+  const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (props.validation !== undefined && !props.validation(e.target.value)) {
+      setError(true);
+    } else {
+      setError(false);
+    }
+    props.onChange(e);
+  };
+
+  return (
+    <TextField
+      id={props.id}
+      label={props.label}
+      variant="outlined"
+      value={props.value}
+      onChange={handleOnChange}
+      fullWidth
+      margin="normal"
+      multiline={props.multiline}
+      rows={props.rows}
+      error={error}
+      helperText={error ? props.errorText : ""}
+    />
   );
 };
