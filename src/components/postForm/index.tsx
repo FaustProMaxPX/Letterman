@@ -1,9 +1,9 @@
 import { Button, Grid, Paper, TextField, Typography } from "@mui/material";
 import { Post } from "../../types";
 import { jsonToMap } from "../../utils/map-utils";
-import React, { useState } from "react";
-import { createPost } from "../../services/postsService";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { createPost, getPost } from "../../services/postsService";
+import { useNavigate, useParams } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import CreateIcon from "@mui/icons-material/Create";
 import { formatErrorMessage } from "../../services/utils/transform-response";
@@ -16,12 +16,28 @@ export interface PostFormProps {
   post?: Post;
 }
 
-export const PostForm = ({ post }: PostFormProps) => {
+export const PostForm = () => {
+  const params = useParams();
+  const id = params.id;
   const navigate = useNavigate();
-  const [title, setTitle] = useState(post === undefined ? "" : post.title);
-  const [content, setContent] = useState(
-    post === undefined ? "" : htmlToMarkdown(post.content)
-  );
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const postRef = useRef<Post>();
+
+  useEffect(() => {
+    if (id !== undefined) {
+      getPost(id)
+        .then((post_) => {
+          setTitle(post_.title);
+          setContent(post_.content);
+          postRef.current = post_;
+        })
+        .catch((e: Error) => {
+          openMessage(formatErrorMessage(e));
+        });
+    }
+  });
 
   const openMessage = useMessage();
 
@@ -85,7 +101,6 @@ export const PostForm = ({ post }: PostFormProps) => {
                 }}
                 style={{ marginTop: "10px", height: "80%" }}
               />
-              
             </Paper>
           </Grid>
           <Grid item xs={12} md={4} lg={3} sx={{ mt: 3 }}>
@@ -100,19 +115,21 @@ export const PostForm = ({ post }: PostFormProps) => {
               <Typography variant="h6" color={"primary"} sx={{ mb: 2 }}>
                 元数据
               </Typography>
-              {Array.from(jsonToMap(post?.metadata)).map(([key, value]) => (
-                <TextField
-                  id={key}
-                  label={key}
-                  variant="outlined"
-                  value={value}
-                />
-              ))}
+              {Array.from(jsonToMap(postRef.current?.metadata)).map(
+                ([key, value]) => (
+                  <TextField
+                    id={key}
+                    label={key}
+                    variant="outlined"
+                    value={value}
+                  />
+                )
+              )}
               <TextField
                 id="createTime"
                 label="创建时间"
                 variant="outlined"
-                value={post?.createTime}
+                value={postRef.current?.createTime}
                 contentEditable={"plaintext-only"}
                 InputProps={{ readOnly: true }}
                 margin="normal"
@@ -121,7 +138,7 @@ export const PostForm = ({ post }: PostFormProps) => {
                 id="version"
                 label="版本"
                 variant="outlined"
-                value={post?.version}
+                value={postRef.current?.version}
                 InputProps={{ readOnly: true }}
                 margin="normal"
               />

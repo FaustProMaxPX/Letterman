@@ -7,6 +7,7 @@ import { EMPTY_PAGE, Page, Post } from "../../types";
 import { formatDate } from "../../utils/time-util";
 import useMessage from "../../hooks/useMessage";
 import { formatErrorMessage } from "../../services/utils/transform-response";
+import { Link } from "react-router-dom";
 
 const columns: GridColDef[] = [
   {
@@ -36,6 +37,12 @@ const columns: GridColDef[] = [
     valueFormatter: (params: string) => {
       return formatDate(new Date(params));
     },
+  },
+  {
+    field: "...",
+    headerName: "...",
+    minWidth: 100,
+    renderCell: (params) => <Link to={`/post/${params.row.id}`}>编辑</Link>,
   },
 ];
 
@@ -69,7 +76,6 @@ export const PostPage = () => {
         }}
         pageSizeOptions={[1, 5, 10]}
         paginationMode="server"
-        checkboxSelection
         autoHeight
         disableRowSelectionOnClick
         onPaginationModelChange={(newModel) => {
@@ -77,7 +83,7 @@ export const PostPage = () => {
             setPosts(data);
           });
         }}
-      ></DataGrid>
+      />
     </Box>
   );
 };

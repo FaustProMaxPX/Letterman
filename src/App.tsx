@@ -141,13 +141,13 @@ const App = () => {
             <Toolbar />
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4, height: "80%" }}>
               <Notification />
-              <PostForm />
-              {/* <ErrorBoundary FallbackComponent={ErrorDisplay}>
+              <ErrorBoundary FallbackComponent={ErrorDisplay}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/posts" element={<PostPage />} />
+                  <Route path="/post/:id" element={<PostForm />} />
                 </Routes>
-              </ErrorBoundary> */}
+              </ErrorBoundary>
             </Container>
           </Box>
         </Box>

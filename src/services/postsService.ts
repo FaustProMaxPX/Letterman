@@ -24,3 +24,10 @@ export const createPost = async (post: CreatePostReq) => {
   });
   return transformResponse(data);
 };
+
+export const getPost = async (id: string) => {
+  const data = await axios.get<CommonResult<Post>>(
+    `${BASE_URL}/api/post/${id}`
+  );
+  return transformResponse(data);
+};
