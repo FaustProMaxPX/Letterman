@@ -1,10 +1,10 @@
-use actix_web::web::{Data, Json, Query};
+use actix_web::web::{Data, Json, Path, Query};
 use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
 
-use crate::operations::posts::{PostCreator, PostPageQueryer, PostUpdater};
+use crate::operations::posts::{PostCreator, PostPageQueryer, PostQueryer, PostUpdater};
 use crate::traits::{DbAction, DbActionError, Validate};
-use crate::types::posts::{CreatePostError, QueryPostError, UpdatePostError, UpdatePostReq};
+use crate::types::posts::{CreatePostError, Post, QueryPostError, UpdatePostError, UpdatePostReq};
 use crate::types::{PageReq, PageValidationError};
 use crate::{
     types::{posts::CreatePostReq, CommonResult},
@@ -58,7 +58,10 @@ impl From<DbActionError<CreatePostError>> for PostResponseError {
 impl From<DbActionError<QueryPostError>> for PostResponseError {
     fn from(value: DbActionError<QueryPostError>) -> Self {
         match value {
-            DbActionError::Error(e) => PostResponseError::Other(e.to_string()),
+            DbActionError::Error(e) => match e {
+                QueryPostError::NotFound => PostResponseError::UserError { msg: e.to_string() },
+                _ => PostResponseError::Other(e.to_string()),
+            },
             DbActionError::Pool(e) => PostResponseError::Pool(e),
             DbActionError::Canceled => PostResponseError::Canceled,
         }
@@ -122,4 +125,13 @@ impl From<PageValidationError> for PostResponseError {
             msg: item.msg,
         }
     }
+}
+
+pub(crate) async fn get_post(
+    state: Data<State>,
+    id: Path<i64>,
+) -> Result<HttpResponse, PostResponseError> {
+    let id = id.into_inner();
+    let post = PostQueryer(id).execute(state.pool.clone()).await?;
+    Ok(HttpResponse::Ok().json(CommonResult::success_with_data(post)))
 }

@@ -17,7 +17,7 @@ use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
 use routes::{
     common::ping,
-    posts::{create, get_list, update},
+    posts::{create, get_list, get_post, update},
 };
 
 #[macro_use]
@@ -60,8 +60,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .allow_any_origin(),
             )
             .service(
-                scope("/api/posts")
+                scope("/api/post")
                     .service(resource("/list").route(get().to(get_list)))
+                    .service(resource("/{id}").route(get().to(get_post)))
                     .service(
                         resource("")
                             .route(post().to(create))

@@ -140,6 +140,26 @@ fn insert_post(
     Ok(())
 }
 
+pub struct PostQueryer(pub i64);
+
+impl DbAction for PostQueryer {
+    type Item = Post;
+
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        let post: BasePost = schema::t_post::table.find(self.0).first(conn)?;
+        let content: PostContent = schema::t_post_content::table
+            .filter(
+                schema::t_post_content::post_id
+                    .eq(post.post_id)
+                    .and(schema::t_post_content::version.eq(post.version)),
+            )
+            .first(conn)?;
+        Ok(Post::new(post, content))
+    }
+}
+
 #[cfg(test)]
 mod post_db_test {
 

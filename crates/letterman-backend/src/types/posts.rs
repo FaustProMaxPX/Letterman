@@ -241,12 +241,17 @@ impl From<diesel::result::Error> for CreatePostError {
 pub enum QueryPostError {
     #[display(fmt = "database error")]
     Database,
+    #[display(fmt = "not found post")]
+    NotFound,
 }
 
 impl From<diesel::result::Error> for QueryPostError {
     fn from(item: diesel::result::Error) -> Self {
         error!("query post error: database error, e: {item}");
-        QueryPostError::Database
+        match item {
+            diesel::result::Error::NotFound => QueryPostError::NotFound,
+            _ => QueryPostError::Database,
+        }
     }
 }
 
@@ -264,6 +269,7 @@ impl std::error::Error for UpdatePostError {}
 
 impl From<diesel::result::Error> for UpdatePostError {
     fn from(item: diesel::result::Error) -> Self {
+        error!("update post error: database error, e: {item}");
         match item {
             diesel::result::Error::NotFound => UpdatePostError::NotFound,
             _ => UpdatePostError::Database,
