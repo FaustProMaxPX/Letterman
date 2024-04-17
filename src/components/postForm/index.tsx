@@ -7,10 +7,11 @@ import { useNavigate } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import CreateIcon from "@mui/icons-material/Create";
 import { formatErrorMessage } from "../../services/utils/transform-response";
-import ReactMarkdown from "react-markdown";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import EditIcon from "@mui/icons-material/Edit";
-import Markdown from "react-markdown";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+
+import TurndownService from "turndown";
+
 export interface PostFormProps {
   post?: Post;
 }
@@ -19,9 +20,8 @@ export const PostForm = ({ post }: PostFormProps) => {
   const navigate = useNavigate();
   const [title, setTitle] = useState(post === undefined ? "" : post.title);
   const [content, setContent] = useState(
-    post === undefined ? "" : post.content
+    post === undefined ? "" : htmlToMarkdown(post.content)
   );
-  const [preview, setPreview] = useState(false);
 
   const openMessage = useMessage();
 
@@ -29,11 +29,10 @@ export const PostForm = ({ post }: PostFormProps) => {
     e.preventDefault();
     createPost({
       title,
-      content,
+      content: htmlToMarkdown(content),
       metadata: JSON.parse("{}"),
     })
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .then((data) => {
+      .then(() => {
         navigate("/posts");
       })
       .catch((e: Error) => openMessage(formatErrorMessage(e)));
@@ -43,14 +42,22 @@ export const PostForm = ({ post }: PostFormProps) => {
       <Typography component="h2" variant="h6" color="primary" gutterBottom>
         编辑文章
       </Typography>
-      <form style={{ width: "100%", flexGrow: 1 }} onSubmit={handlePostSubmit}>
-        <Grid container spacing={3} sx={{ width: "100%", flexGrow: 1 }}>
+      <form
+        style={{ width: "100%", height: "100%", flexGrow: 1 }}
+        onSubmit={handlePostSubmit}
+      >
+        <Grid
+          container
+          spacing={3}
+          sx={{ width: "100%", flexGrow: 1, height: "100%" }}
+        >
           <Grid item xs={12} md={8} lg={9} mt={3}>
             <Paper
               sx={{
                 p: 3,
                 display: "flex",
                 flexDirection: "column",
+                height: "100%",
               }}
               elevation={3}
             >
@@ -70,17 +77,15 @@ export const PostForm = ({ post }: PostFormProps) => {
                 }}
                 errorText="标题不能为空"
               />
-              {!preview && (
-                <FormField
-                  id="content"
-                  label="内容"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  multiline={true}
-                  rows={20}
-                />
-              )}
-              {preview && (<Markdown>{content}</Markdown>)}
+              <ReactQuill
+                theme="snow"
+                value={content}
+                onChange={(value) => {
+                  setContent(value);
+                }}
+                style={{ marginTop: "10px", height: "80%" }}
+              />
+              
             </Paper>
           </Grid>
           <Grid item xs={12} md={4} lg={3} sx={{ mt: 3 }}>
@@ -101,7 +106,7 @@ export const PostForm = ({ post }: PostFormProps) => {
                   label={key}
                   variant="outlined"
                   value={value}
-                ></TextField>
+                />
               ))}
               <TextField
                 id="createTime"
@@ -131,26 +136,6 @@ export const PostForm = ({ post }: PostFormProps) => {
         >
           提交
         </Button>
-        {!preview && (
-          <Button
-            variant="contained"
-            startIcon={<VisibilityIcon />}
-            onClick={() => setPreview(true)}
-            sx={{ mt: 3, ml: 1 }}
-          >
-            预览
-          </Button>
-        )}
-        {preview && (
-          <Button
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={() => setPreview(false)}
-            sx={{ mt: 3, ml: 1 }}
-          >
-            编辑
-          </Button>
-        )}
       </form>
     </React.Fragment>
   );
@@ -193,4 +178,9 @@ const FormField = (props: FormFieldProps) => {
       helperText={error ? props.errorText : ""}
     />
   );
+};
+
+const htmlToMarkdown = (content: string) => {
+  const turndownService = new TurndownService();
+  return turndownService.turndown(content);
 };
