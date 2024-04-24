@@ -8,3 +8,9 @@ export const jsonToMap = (obj: JSON | undefined): Map<string, string> => {
   }
   return ret;
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const mapToJson = (obj: Map<any, any>) => {
+  const str = JSON.stringify(Object.fromEntries(obj));
+  return JSON.parse(str);
+};

@@ -1,5 +1,9 @@
 import {
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
   Paper,
@@ -7,7 +11,6 @@ import {
   Typography,
 } from "@mui/material";
 import { Post } from "../../types";
-import { jsonToMap } from "../../utils/map-utils";
 import React, { useEffect, useRef, useState } from "react";
 import { createPost, getPost } from "../../services/postsService";
 import { useNavigate, useParams } from "react-router-dom";
@@ -19,6 +22,8 @@ import "react-quill/dist/quill.snow.css";
 
 import TurndownService from "turndown";
 import { formatDate } from "../../utils/time-util";
+import { jsonToMap, mapToJson } from "../../utils/map-utils";
+import { ValidateResponse } from "../types";
 
 export interface PostFormProps {
   post?: Post;
@@ -31,6 +36,9 @@ export const PostForm = () => {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [metadata, setMetadata] = useState<Map<string, string>>(new Map());
+  const [open, setOpen] = useState(false);
+
   const postRef = useRef<Post>();
 
   useEffect(() => {
@@ -39,6 +47,7 @@ export const PostForm = () => {
         .then((post_) => {
           setTitle(post_.title);
           setContent(post_.content);
+          setMetadata(jsonToMap(post_.metadata));
           postRef.current = post_;
         })
         .catch((e: Error) => {
@@ -54,7 +63,7 @@ export const PostForm = () => {
     createPost({
       title,
       content: htmlToMarkdown(content),
-      metadata: JSON.parse("{}"),
+      metadata: mapToJson(metadata),
     })
       .then(() => {
         navigate("/posts");
@@ -91,15 +100,12 @@ export const PostForm = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 validation={(value) => {
-                  if (value === undefined) {
-                    return false;
-                  } else if (value.length === 0) {
-                    return false;
+                  if (value === undefined || value.length === 0) {
+                    return { success: false, message: `标题不可为空` };
                   } else {
-                    return true;
+                    return { success: true, message: "" };
                   }
                 }}
-                errorText="标题不能为空"
               />
               <ReactQuill
                 theme="snow"
@@ -123,16 +129,28 @@ export const PostForm = () => {
               <Typography variant="h6" color={"primary"} sx={{ mb: 2 }}>
                 元数据
               </Typography>
-              {Array.from(jsonToMap(postRef.current?.metadata)).map(
-                ([key, value]) => (
-                  <TextField
+              {Array.from(metadata).map(([key, value]) => {
+                return (
+                  <FormField
+                    key={key}
                     id={key}
                     label={key}
-                    variant="outlined"
                     value={value}
+                    onChange={(e) => {
+                      const updated = new Map(metadata);
+                      updated.set(key, e.target.value);
+                      setMetadata(updated);
+                    }}
+                    validation={(value) => {
+                      if (value === undefined || value.length === 0) {
+                        return { success: false, message: `${key} 不可为空` };
+                      } else {
+                        return { success: true, message: "" };
+                      }
+                    }}
                   />
-                )
-              )}
+                );
+              })}
               <Divider />
 
               <TextField
@@ -162,6 +180,22 @@ export const PostForm = () => {
         >
           提交
         </Button>
+        <Button
+          type="button"
+          variant="contained"
+          sx={{ float: "right", mt: 3, mr: 1 }}
+          onClick={() => setOpen(true)}
+        >
+          添加新的元数据
+        </Button>
+        <MetadataDialogForm
+          open={open}
+          onClose={() => setOpen(false)}
+          onSubmit={(key, value) =>
+            setMetadata(new Map(metadata).set(key, value))
+          }
+          metadata={metadata}
+        />
       </form>
     </React.Fragment>
   );
@@ -174,18 +208,25 @@ interface FormFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   rows?: number;
   multiline?: boolean;
-  errorText?: string;
-  validation?: (value: string | undefined) => boolean;
+  validation?: (value: string | undefined) => ValidateResponse;
 }
 
 const FormField = (props: FormFieldProps) => {
   const [error, setError] = useState(false);
+  const [errorText, setErrorText] = useState("");
+
   const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (props.validation !== undefined && !props.validation(e.target.value)) {
-      setError(true);
-    } else {
-      setError(false);
+    let err = false;
+    let msg = "";
+    if (props.validation !== undefined) {
+      const res = props.validation(e.target.value);
+      if (!res.success) {
+        err = true;
+        msg = res.message;
+      }
     }
+    setError(err);
+    setErrorText(msg);
     props.onChange(e);
   };
 
@@ -201,8 +242,75 @@ const FormField = (props: FormFieldProps) => {
       multiline={props.multiline}
       rows={props.rows}
       error={error}
-      helperText={error ? props.errorText : ""}
+      helperText={error ? errorText : ""}
     />
+  );
+};
+
+interface MetadataDialogFormProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (key: string, value: string) => void;
+  metadata: Map<string, string>;
+}
+
+const MetadataDialogForm = (props: MetadataDialogFormProps) => {
+  const [key, setKey] = useState("");
+  const [value, setValue] = useState("");
+
+  const handleAddMetadata = () => {
+    props.onSubmit(key, value);
+    setKey("");
+    setValue("");
+    props.onClose();
+  };
+
+  return (
+    <Dialog
+      open={props.open}
+      onClose={props.onClose}
+      PaperProps={{
+        component: "form",
+      }}
+    >
+      <DialogTitle>添加元数据</DialogTitle>
+      <DialogContent>
+        <FormField
+          id="metadata-key"
+          label="key"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          validation={(value) => {
+            if (value === undefined || value.length === 0) {
+              return { success: false, message: "key 不可为空" };
+            } else if (props.metadata.has(value)) {
+              return { success: false, message: `${value} 已存在` };
+            } else {
+              return { success: true, message: "" };
+            }
+          }}
+        />
+        <FormField
+          id="metadata-value"
+          label="value"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          validation={(value) => {
+            if (value === undefined || value.length === 0) {
+              return { success: false, message: "value 不可为空" };
+            } else if (props.metadata.has(value)) {
+              return { success: false, message: `${value} 已存在` };
+            } else {
+              return { success: true, message: "" };
+            }
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleAddMetadata}>添加</Button>
+        <Button onClick={props.onClose}>取消</Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
