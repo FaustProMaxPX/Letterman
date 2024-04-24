@@ -2,9 +2,12 @@ import { TIME_DISPLAY_FORMAT } from "../constants";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const formatDate = (
-  date: Date,
+  date?: Date,
   format = TIME_DISPLAY_FORMAT
 ): string => {
+  if (date === undefined) {
+    return "";
+  }
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();

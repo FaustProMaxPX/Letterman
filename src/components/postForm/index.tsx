@@ -1,4 +1,11 @@
-import { Button, Grid, Paper, TextField, Typography } from "@mui/material";
+import {
+  Button,
+  Divider,
+  Grid,
+  Paper,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { Post } from "../../types";
 import { jsonToMap } from "../../utils/map-utils";
 import React, { useEffect, useRef, useState } from "react";
@@ -11,6 +18,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
 import TurndownService from "turndown";
+import { formatDate } from "../../utils/time-util";
 
 export interface PostFormProps {
   post?: Post;
@@ -125,12 +133,13 @@ export const PostForm = () => {
                   />
                 )
               )}
+              <Divider />
+
               <TextField
                 id="createTime"
                 label="创建时间"
                 variant="outlined"
-                value={postRef.current?.createTime}
-                contentEditable={"plaintext-only"}
+                value={formatDate(postRef.current?.createTime)}
                 InputProps={{ readOnly: true }}
                 margin="normal"
               />
@@ -138,7 +147,7 @@ export const PostForm = () => {
                 id="version"
                 label="版本"
                 variant="outlined"
-                value={postRef.current?.version}
+                value={postRef.current?.version || ""}
                 InputProps={{ readOnly: true }}
                 margin="normal"
               />

@@ -34,8 +34,8 @@ const columns: GridColDef[] = [
     field: "createTime",
     headerName: "创建时间",
     minWidth: 200,
-    valueFormatter: (params: string) => {
-      return formatDate(new Date(params));
+    valueFormatter: (params: Date) => {
+      return formatDate(params);
     },
   },
   {

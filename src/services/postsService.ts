@@ -14,6 +14,9 @@ export const getPostPage = async (
       params: { page, pageSize },
     }
   );
+  data.data.data.data.forEach((post) => {
+    post.createTime = new Date(post.createTime);
+  });
   return transformResponse(data);
 };
 
@@ -29,5 +32,6 @@ export const getPost = async (id: string) => {
   const data = await axios.get<CommonResult<Post>>(
     `${BASE_URL}/api/post/${id}`
   );
+  data.data.data.createTime = new Date(data.data.data.createTime);
   return transformResponse(data);
 };
