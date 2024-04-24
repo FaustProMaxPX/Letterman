@@ -298,8 +298,6 @@ const MetadataDialogForm = (props: MetadataDialogFormProps) => {
           validation={(value) => {
             if (value === undefined || value.length === 0) {
               return { success: false, message: "value 不可为空" };
-            } else if (props.metadata.has(value)) {
-              return { success: false, message: `${value} 已存在` };
             } else {
               return { success: true, message: "" };
             }
