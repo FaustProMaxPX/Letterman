@@ -51,12 +51,12 @@ export const PostForm = () => {
           postRef.current = post_;
         })
         .catch((e: Error) => {
-          openMessage(formatErrorMessage(e));
+          message.error(formatErrorMessage(e));
         });
     }
   }, [id]);
 
-  const openMessage = useMessage();
+  const message = useMessage();
 
   const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,9 +66,10 @@ export const PostForm = () => {
       metadata: mapToJson(metadata),
     })
       .then(() => {
-        navigate("/posts");
+        message.success("文章创建成功", 1000);
+        setTimeout(() => navigate("/posts"), 1000);
       })
-      .catch((e: Error) => openMessage(formatErrorMessage(e)));
+      .catch((e: Error) => message.error(formatErrorMessage(e)));
   };
   return (
     <React.Fragment>

@@ -14,14 +14,14 @@ import MuiAppBar, { AppBarProps as MuiAppBarProps } from "@mui/material/AppBar";
 import MuiDrawer from "@mui/material/Drawer";
 import { ThemeProvider, createTheme, styled } from "@mui/material/styles";
 import { useState } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Notification from "./components/Notification";
 import { Dashboard } from "./components/dashboard";
+import { ErrorDisplay } from "./components/errorPage";
+import { PostForm } from "./components/postForm";
 import { PostPage } from "./components/postPage";
 import { mainListItems } from "./listItems";
-import { ErrorBoundary } from "react-error-boundary";
-import { ErrorDisplay } from "./components/errorPage";
-import Notification from "./components/notification";
-import { PostForm } from "./components/postForm";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {

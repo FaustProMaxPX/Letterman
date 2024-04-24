@@ -1,7 +1,7 @@
-import { useDispatch, useSelector } from "react-redux";
-import { Message, hideMessage } from "../../reducers/notificationReducer";
-import React from "react";
 import { Alert, Snackbar } from "@mui/material";
+import React from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Message, hideMessage } from "../reducers/notificationReducer";
 
 const Notification = () => {
   const dispatch = useDispatch();
@@ -26,7 +26,7 @@ const Notification = () => {
           }}
         >
           <Alert
-            severity="error"
+            severity={message.severity}
             variant="filled"
             onClose={() => handleClose(message.id)}
           >

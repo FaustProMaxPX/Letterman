@@ -48,16 +48,17 @@ const columns: GridColDef[] = [
 
 export const PostPage = () => {
   const [posts, setPosts] = useState<Page<Post>>(EMPTY_PAGE);
-  const openMessage = useMessage();
+  const message = useMessage();
+  
   useEffect(() => {
     getPostPage(DEFAULT_PAGE, DEFAULT_PAGE_SIZE)
       .then((data) => {
         setPosts(data);
       })
       .catch((error) => {
-        openMessage(formatErrorMessage(error));
+        message.error(formatErrorMessage(error));
       });
-  }, [openMessage]);
+  }, [message.error]);
 
   return (
     <Box

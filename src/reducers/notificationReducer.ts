@@ -3,6 +3,7 @@ import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 export interface Message {
   id: number;
   content: string;
+  severity: "error" | "warning" | "info" | "success";
 }
 
 interface NotificationState {
