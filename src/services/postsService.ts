@@ -2,7 +2,7 @@ import { transformResponse } from "./utils/transform-response";
 import axios from "axios";
 import { CommonResult, Page, Post } from "../types";
 import { BASE_URL } from "../constants";
-import { CreatePostReq } from "./requests/posts";
+import { CreatePostReq, UpdatePostReq } from "./requests/posts";
 
 export const getPostPage = async (
   page: number,
@@ -35,3 +35,14 @@ export const getPost = async (id: string) => {
   data.data.data.createTime = new Date(data.data.data.createTime);
   return transformResponse(data);
 };
+
+export const updatePost = async (post: UpdatePostReq) => {
+  const data = await axios.put<CommonResult<null>>(
+    `${BASE_URL}/api/post`,
+    {
+      ...post,
+      metadata: JSON.stringify(post.metadata),
+    }
+  );
+  return transformResponse(data);
+}

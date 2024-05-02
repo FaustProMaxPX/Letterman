@@ -64,13 +64,13 @@ impl DbAction for PostPageQueryer {
         // convert contents to a map. Key is post_id, value is PostContent
         let contents_map = contents
             .into_iter()
-            .map(|c| (c.post_id, c))
+            .map(|c| ((c.post_id, c.version), c))
             .collect::<std::collections::HashMap<_, _>>();
 
         let page = page
             .into_iter()
             .map(|p| {
-                let content = contents_map.get(&p.post_id).unwrap();
+                let content = contents_map.get(&(p.post_id, p.version)).unwrap();
                 Post::new(p, content.clone())
             })
             .collect::<Vec<Post>>();

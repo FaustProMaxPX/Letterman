@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import { Post } from "../../types";
 import React, { useEffect, useRef, useState } from "react";
-import { createPost, getPost } from "../../services/postsService";
+import { createPost, getPost, updatePost } from "../../services/postsService";
 import { useNavigate, useParams } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import CreateIcon from "@mui/icons-material/Create";
@@ -61,16 +61,30 @@ export const PostForm = () => {
 
   const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createPost({
-      title,
-      content: htmlToMarkdown(content),
-      metadata: mapToJson(metadata),
-    })
-      .then(() => {
-        message.success("文章创建成功", 1000);
-        setTimeout(() => navigate("/posts"), 1000);
+    if (!isUpdate) {
+      createPost({
+        title,
+        content,
+        metadata: mapToJson(metadata),
       })
-      .catch((e: Error) => message.error(formatErrorMessage(e)));
+        .then(() => {
+          message.success("文章创建成功", 1000);
+          setTimeout(() => navigate("/posts"), 1000);
+        })
+        .catch((e: Error) => message.error(formatErrorMessage(e)));
+    } else {
+      updatePost({
+        id,
+        title,
+        content,
+        metadata: mapToJson(metadata),
+      })
+        .then(() => {
+          message.success("文章更新成功", 1000);
+          setTimeout(() => navigate("/posts"), 1000);
+        })
+        .catch((e: Error) => message.error(formatErrorMessage(e)));
+    }
   };
   return (
     <React.Fragment>
@@ -319,7 +333,3 @@ const MetadataDialogForm = (props: MetadataDialogFormProps) => {
   );
 };
 
-const htmlToMarkdown = (content: string) => {
-  const turndownService = new TurndownService();
-  return turndownService.turndown(content);
-};
