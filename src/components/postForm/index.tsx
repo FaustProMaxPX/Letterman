@@ -114,7 +114,7 @@ export const PostForm = () => {
                 onChange={(value) => {
                   setContent(value);
                 }}
-                style={{ marginTop: "10px", height: "80%" }}
+                style={{ marginTop: "10px", height: "45vh" }}
               />
             </Paper>
           </Grid>
