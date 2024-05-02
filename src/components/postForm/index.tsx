@@ -40,6 +40,7 @@ export const PostForm = () => {
   const [open, setOpen] = useState(false);
 
   const postRef = useRef<Post>();
+  const isUpdate = id !== undefined;
 
   useEffect(() => {
     if (id !== undefined) {
@@ -83,9 +84,9 @@ export const PostForm = () => {
         <Grid
           container
           spacing={3}
-          sx={{ width: "100%", flexGrow: 1, height: "100%" }}
+          sx={{ width: "100%", flexGrow: 1, height: "90%" }}
         >
-          <Grid item xs={12} md={8} lg={9} mt={3}>
+          <Grid item xs={12} md={8} lg={9} >
             <Paper
               sx={{
                 p: 3,
@@ -114,20 +115,22 @@ export const PostForm = () => {
                 onChange={(value) => {
                   setContent(value);
                 }}
-                style={{ marginTop: "10px", height: "45vh" }}
+                style={{ marginTop: "10px", height: "40vh" }}
               />
             </Paper>
           </Grid>
-          <Grid item xs={12} md={4} lg={3} sx={{ mt: 3 }}>
+          <Grid item xs={12} md={4} lg={3} >
             <Paper
               sx={{
                 p: 3,
                 display: "flex",
                 flexDirection: "column",
                 height: "100%",
+                maxHeight: "72vh",
+                overflow: "auto",
               }}
             >
-              <Typography variant="h6" color={"primary"} sx={{ mb: 2 }}>
+              <Typography variant="h6" color={"primary"} >
                 元数据
               </Typography>
               {Array.from(metadata).map(([key, value]) => {
@@ -152,24 +155,27 @@ export const PostForm = () => {
                   />
                 );
               })}
-              <Divider />
-
-              <TextField
-                id="createTime"
-                label="创建时间"
-                variant="outlined"
-                value={formatDate(postRef.current?.createTime)}
-                InputProps={{ readOnly: true }}
-                margin="normal"
-              />
-              <TextField
-                id="version"
-                label="版本"
-                variant="outlined"
-                value={postRef.current?.version || ""}
-                InputProps={{ readOnly: true }}
-                margin="normal"
-              />
+              {isUpdate && (
+                <React.Fragment>
+                  <Divider />
+                  <TextField
+                    id="createTime"
+                    label="创建时间"
+                    variant="outlined"
+                    value={formatDate(postRef.current?.createTime)}
+                    InputProps={{ readOnly: true }}
+                    margin="normal"
+                  />
+                  <TextField
+                    id="version"
+                    label="版本"
+                    variant="outlined"
+                    value={postRef.current?.version || ""}
+                    InputProps={{ readOnly: true }}
+                    margin="normal"
+                  />
+                </React.Fragment>
+              )}
             </Paper>
           </Grid>
         </Grid>
@@ -177,14 +183,14 @@ export const PostForm = () => {
           variant="contained"
           startIcon={<CreateIcon />}
           type="submit"
-          sx={{ mt: 3, ml: 1 }}
+          sx={{ mt: 3 }}
         >
           提交
         </Button>
         <Button
           type="button"
           variant="contained"
-          sx={{ float: "right", mt: 3, mr: 1 }}
+          sx={{ float: "right", mt: 3, mr: 3 }}
           onClick={() => setOpen(true)}
         >
           添加新的元数据

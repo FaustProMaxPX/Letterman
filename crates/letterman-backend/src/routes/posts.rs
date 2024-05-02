@@ -4,7 +4,7 @@ use actix_web::{http::StatusCode, ResponseError};
 
 use crate::operations::posts::{PostCreator, PostPageQueryer, PostQueryer, PostUpdater};
 use crate::traits::{DbAction, DbActionError, Validate};
-use crate::types::posts::{CreatePostError, Post, QueryPostError, UpdatePostError, UpdatePostReq};
+use crate::types::posts::{CreatePostError, QueryPostError, UpdatePostError, UpdatePostReq};
 use crate::types::{PageReq, PageValidationError};
 use crate::{
     types::{posts::CreatePostReq, CommonResult},

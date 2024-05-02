@@ -146,6 +146,7 @@ const App = () => {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/posts" element={<PostPage />} />
                   <Route path="/post/:id" element={<PostForm />} />
+                  <Route path="/post/new" element={<PostForm />} />
                 </Routes>
               </ErrorBoundary>
             </Container>

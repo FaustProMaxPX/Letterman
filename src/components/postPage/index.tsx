@@ -1,4 +1,4 @@
-import { Box } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useEffect, useState } from "react";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../../constants";
@@ -7,7 +7,7 @@ import { EMPTY_PAGE, Page, Post } from "../../types";
 import { formatDate } from "../../utils/time-util";
 import useMessage from "../../hooks/useMessage";
 import { formatErrorMessage } from "../../services/utils/transform-response";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const columns: GridColDef[] = [
   {
@@ -49,7 +49,8 @@ const columns: GridColDef[] = [
 export const PostPage = () => {
   const [posts, setPosts] = useState<Page<Post>>(EMPTY_PAGE);
   const message = useMessage();
-  
+  const navigate = useNavigate();
+
   useEffect(() => {
     getPostPage(DEFAULT_PAGE, DEFAULT_PAGE_SIZE)
       .then((data) => {
@@ -64,6 +65,10 @@ export const PostPage = () => {
     <Box
       sx={{ minHeight: 300, width: "100%", flexGrow: 1, overflow: "hidden" }}
     >
+      <Box display={"flex"} justifyContent={"space-between"} mb={2}>
+        <Typography variant="h5">文章列表</Typography>
+        <Button type="button" variant="contained" onClick={() => navigate("/post/new")}>创建新文章</Button>
+      </Box>
       <DataGrid
         columns={columns}
         rows={posts.data}
