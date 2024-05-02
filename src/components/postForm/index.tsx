@@ -20,7 +20,6 @@ import { formatErrorMessage } from "../../services/utils/transform-response";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-import TurndownService from "turndown";
 import { formatDate } from "../../utils/time-util";
 import { jsonToMap, mapToJson } from "../../utils/map-utils";
 import { ValidateResponse } from "../types";

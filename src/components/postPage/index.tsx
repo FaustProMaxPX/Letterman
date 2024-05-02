@@ -63,7 +63,7 @@ export const PostPage = () => {
 
   return (
     <Box
-      sx={{ minHeight: 300, width: "100%", flexGrow: 1, overflow: "hidden" }}
+      sx={{ minHeight: 300, height: "100%", width: "100%", flexGrow: 1, overflow: "hidden" }}
     >
       <Box display={"flex"} justifyContent={"space-between"} mb={2}>
         <Typography variant="h5">文章列表</Typography>
@@ -80,12 +80,12 @@ export const PostPage = () => {
             },
           },
         }}
-        pageSizeOptions={[1, 5, 10]}
+        pageSizeOptions={[1, 5, 7]}
         paginationMode="server"
         autoHeight
         disableRowSelectionOnClick
         onPaginationModelChange={(newModel) => {
-          getPostPage(newModel.page, newModel.pageSize).then((data) => {
+          getPostPage(newModel.page + 1, newModel.pageSize).then((data) => {
             setPosts(data);
           });
         }}
