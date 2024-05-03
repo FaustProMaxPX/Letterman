@@ -17,12 +17,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import CreateIcon from "@mui/icons-material/Create";
 import { formatErrorMessage } from "../../services/utils/transform-response";
-import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
 import { formatDate } from "../../utils/time-util";
 import { jsonToMap, mapToJson } from "../../utils/map-utils";
-import { ValidateResponse } from "../types";
+import {
+  FormContext,
+  FormField,
+  MapField,
+  QuillField,
+  useForm,
+} from "../common/BasicForm";
 
 export interface PostFormProps {
   post?: Post;
@@ -33,21 +38,86 @@ export const PostForm = () => {
   const id = params.id;
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [metadata, setMetadata] = useState<Map<string, string>>(new Map());
   const [open, setOpen] = useState(false);
 
   const postRef = useRef<Post>();
   const isUpdate = id !== undefined;
+  const formCtx = useForm({
+    initialValue: {
+      title: "",
+      content: "",
+      metadata: new Map(),
+    },
+    validate: (values) => {
+      const errors: {
+        title?: string;
+        content?: string;
+        metadata?: Map<string, string>;
+      } = {};
+      if (values.title === undefined || values.title.length === 0) {
+        errors.title = "文章标题不能为空";
+      }
+      if (values.content === undefined || values.content.length === 0) {
+        errors.content = "文章内容不能为空";
+      }
+      if (values.metadata === undefined) {
+        return errors;
+      }
+      const metadataErrors = new Map();
+      for (const [key, value] of values.metadata.entries()) {
+        if (value === undefined || value.length === 0) {
+          metadataErrors.set(key, "value 不可为空");
+        }
+      }
+      if (metadataErrors.size !== 0) {
+        errors.metadata = metadataErrors;
+      }
+      return errors;
+    },
+    onSubmit: ({ title, content, metadata }) => {
+      if (!isUpdate) {
+        createPost({
+          title,
+          content,
+          metadata: mapToJson(metadata),
+        })
+          .then(() => {
+            message.success("文章创建成功", 1000);
+            setTimeout(() => navigate("/posts"), 1000);
+          })
+          .catch((e: Error) => message.error(formatErrorMessage(e)));
+      } else {
+        updatePost({
+          id,
+          title,
+          content,
+          metadata: mapToJson(metadata),
+        })
+          .then(() => {
+            message.success("文章更新成功", 1000);
+            setTimeout(() => navigate("/posts"), 1000);
+          })
+          .catch((e: Error) => message.error(formatErrorMessage(e)));
+      }
+    },
+  });
 
   useEffect(() => {
     if (id !== undefined) {
       getPost(id)
         .then((post_) => {
-          setTitle(post_.title);
-          setContent(post_.content);
-          setMetadata(jsonToMap(post_.metadata));
+          formCtx.setValue({
+            key: "title",
+            value: post_.title,
+          });
+          formCtx.setValue({
+            key: "content",
+            value: post_.content,
+          });
+          formCtx.setValue({
+            key: "metadata",
+            value: jsonToMap(post_.metadata),
+          });
           postRef.current = post_;
         })
         .catch((e: Error) => {
@@ -58,212 +128,107 @@ export const PostForm = () => {
 
   const message = useMessage();
 
-  const handlePostSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isUpdate) {
-      createPost({
-        title,
-        content,
-        metadata: mapToJson(metadata),
-      })
-        .then(() => {
-          message.success("文章创建成功", 1000);
-          setTimeout(() => navigate("/posts"), 1000);
-        })
-        .catch((e: Error) => message.error(formatErrorMessage(e)));
-    } else {
-      updatePost({
-        id,
-        title,
-        content,
-        metadata: mapToJson(metadata),
-      })
-        .then(() => {
-          message.success("文章更新成功", 1000);
-          setTimeout(() => navigate("/posts"), 1000);
-        })
-        .catch((e: Error) => message.error(formatErrorMessage(e)));
-    }
-  };
   return (
     <React.Fragment>
       <Typography component="h2" variant="h6" color="primary" gutterBottom>
         编辑文章
       </Typography>
-      <form
-        style={{ width: "100%", height: "100%", flexGrow: 1 }}
-        onSubmit={handlePostSubmit}
-      >
-        <Grid
-          container
-          spacing={3}
-          sx={{ width: "100%", flexGrow: 1, height: "90%" }}
+      <FormContext.Provider value={formCtx}>
+        <form
+          style={{ width: "100%", height: "100%", flexGrow: 1 }}
+          onSubmit={formCtx.handleSubmit}
         >
-          <Grid item xs={12} md={8} lg={9} >
-            <Paper
-              sx={{
-                p: 3,
-                display: "flex",
-                flexDirection: "column",
-                height: "100%",
-              }}
-              elevation={3}
-            >
-              <FormField
-                id="title"
-                label="标题"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                validation={(value) => {
-                  if (value === undefined || value.length === 0) {
-                    return { success: false, message: `标题不可为空` };
-                  } else {
-                    return { success: true, message: "" };
-                  }
+          <Grid
+            container
+            spacing={3}
+            sx={{ width: "100%", flexGrow: 1, height: "90%" }}
+          >
+            <Grid item xs={12} md={8} lg={9}>
+              <Paper
+                sx={{
+                  p: 3,
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
                 }}
-              />
-              <ReactQuill
-                theme="snow"
-                value={content}
-                onChange={(value) => {
-                  setContent(value);
+                elevation={3}
+              >
+                <FormField id="title" label="标题" />
+                <QuillField
+                  id="content"
+                  theme="snow"
+                  style={{ marginTop: "10px", height: "40vh" }}
+                />
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4} lg={3}>
+              <Paper
+                sx={{
+                  p: 3,
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  maxHeight: "72vh",
+                  overflow: "auto",
                 }}
-                style={{ marginTop: "10px", height: "40vh" }}
-              />
-            </Paper>
+              >
+                <Typography variant="h6" color={"primary"}>
+                  元数据
+                </Typography>
+                <MapField id="metadata" />
+                {isUpdate && (
+                  <React.Fragment>
+                    <Divider />
+                    <TextField
+                      id="createTime"
+                      label="创建时间"
+                      variant="outlined"
+                      value={formatDate(postRef.current?.createTime)}
+                      InputProps={{ readOnly: true }}
+                      margin="normal"
+                    />
+                    <TextField
+                      id="version"
+                      label="版本"
+                      variant="outlined"
+                      value={postRef.current?.version || ""}
+                      InputProps={{ readOnly: true }}
+                      margin="normal"
+                    />
+                  </React.Fragment>
+                )}
+              </Paper>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={4} lg={3} >
-            <Paper
-              sx={{
-                p: 3,
-                display: "flex",
-                flexDirection: "column",
-                height: "100%",
-                maxHeight: "72vh",
-                overflow: "auto",
-              }}
-            >
-              <Typography variant="h6" color={"primary"} >
-                元数据
-              </Typography>
-              {Array.from(metadata).map(([key, value]) => {
-                return (
-                  <FormField
-                    key={key}
-                    id={key}
-                    label={key}
-                    value={value}
-                    onChange={(e) => {
-                      const updated = new Map(metadata);
-                      updated.set(key, e.target.value);
-                      setMetadata(updated);
-                    }}
-                    validation={(value) => {
-                      if (value === undefined || value.length === 0) {
-                        return { success: false, message: `${key} 不可为空` };
-                      } else {
-                        return { success: true, message: "" };
-                      }
-                    }}
-                  />
-                );
-              })}
-              {isUpdate && (
-                <React.Fragment>
-                  <Divider />
-                  <TextField
-                    id="createTime"
-                    label="创建时间"
-                    variant="outlined"
-                    value={formatDate(postRef.current?.createTime)}
-                    InputProps={{ readOnly: true }}
-                    margin="normal"
-                  />
-                  <TextField
-                    id="version"
-                    label="版本"
-                    variant="outlined"
-                    value={postRef.current?.version || ""}
-                    InputProps={{ readOnly: true }}
-                    margin="normal"
-                  />
-                </React.Fragment>
-              )}
-            </Paper>
-          </Grid>
-        </Grid>
-        <Button
-          variant="contained"
-          startIcon={<CreateIcon />}
-          type="submit"
-          sx={{ mt: 3 }}
-        >
-          提交
-        </Button>
-        <Button
-          type="button"
-          variant="contained"
-          sx={{ float: "right", mt: 3, mr: 3 }}
-          onClick={() => setOpen(true)}
-        >
-          添加新的元数据
-        </Button>
+          <Button
+            variant="contained"
+            startIcon={<CreateIcon />}
+            type="submit"
+            sx={{ mt: 3 }}
+          >
+            提交
+          </Button>
+          <Button
+            type="button"
+            variant="contained"
+            sx={{ float: "right", mt: 3, mr: 3 }}
+            onClick={() => setOpen(true)}
+          >
+            添加新的元数据
+          </Button>
+        </form>
         <MetadataDialogForm
           open={open}
           onClose={() => setOpen(false)}
-          onSubmit={(key, value) =>
-            setMetadata(new Map(metadata).set(key, value))
-          }
-          metadata={metadata}
+          onSubmit={(key, value) => {
+            const updated = new Map(formCtx.values.metadata);
+            updated.set(key, value);
+            formCtx.setValue({ key: "metadata", value: updated });
+          }}
+          metadata={formCtx.values.metadata}
         />
-      </form>
+      </FormContext.Provider>
     </React.Fragment>
-  );
-};
-
-interface FormFieldProps {
-  id: string;
-  label: string;
-  value?: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  rows?: number;
-  multiline?: boolean;
-  validation?: (value: string | undefined) => ValidateResponse;
-}
-
-const FormField = (props: FormFieldProps) => {
-  const [error, setError] = useState(false);
-  const [errorText, setErrorText] = useState("");
-
-  const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let err = false;
-    let msg = "";
-    if (props.validation !== undefined) {
-      const res = props.validation(e.target.value);
-      if (!res.success) {
-        err = true;
-        msg = res.message;
-      }
-    }
-    setError(err);
-    setErrorText(msg);
-    props.onChange(e);
-  };
-
-  return (
-    <TextField
-      id={props.id}
-      label={props.label}
-      variant="outlined"
-      value={props.value}
-      onChange={handleOnChange}
-      fullWidth
-      margin="normal"
-      multiline={props.multiline}
-      rows={props.rows}
-      error={error}
-      helperText={error ? errorText : ""}
-    />
   );
 };
 
@@ -275,15 +240,30 @@ interface MetadataDialogFormProps {
 }
 
 const MetadataDialogForm = (props: MetadataDialogFormProps) => {
-  const [key, setKey] = useState("");
-  const [value, setValue] = useState("");
-
-  const handleAddMetadata = () => {
-    props.onSubmit(key, value);
-    setKey("");
-    setValue("");
-    props.onClose();
-  };
+  const form = useForm({
+    initialValue: {
+      key: "",
+      value: "",
+    },
+    validate: (values) => {
+      const errors: { key?: string; value?: string } = {};
+      if (values.key === undefined || values.key.length === 0) {
+        errors.key = "key 不可为空";
+      }
+      if (props.metadata.has(values.key)) {
+        errors.key = `${values.key}已存在`;
+      }
+      if (values.value === undefined || values.value.length === 0) {
+        errors.value = "value 不可为空";
+      }
+      return errors;
+    },
+    onSubmit: (values) => {
+      props.onSubmit(values.key, values.value);
+      form.reset();
+      props.onClose();
+    },
+  });
 
   return (
     <Dialog
@@ -295,40 +275,13 @@ const MetadataDialogForm = (props: MetadataDialogFormProps) => {
     >
       <DialogTitle>添加元数据</DialogTitle>
       <DialogContent>
-        <FormField
-          id="metadata-key"
-          label="key"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          validation={(value) => {
-            if (value === undefined || value.length === 0) {
-              return { success: false, message: "key 不可为空" };
-            } else if (props.metadata.has(value)) {
-              return { success: false, message: `${value} 已存在` };
-            } else {
-              return { success: true, message: "" };
-            }
-          }}
-        />
-        <FormField
-          id="metadata-value"
-          label="value"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          validation={(value) => {
-            if (value === undefined || value.length === 0) {
-              return { success: false, message: "value 不可为空" };
-            } else {
-              return { success: true, message: "" };
-            }
-          }}
-        />
+        <FormField id="key" label="key" />
+        <FormField id="value" label="value" />
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleAddMetadata}>添加</Button>
+        <Button type="submit">添加</Button>
         <Button onClick={props.onClose}>取消</Button>
       </DialogActions>
     </Dialog>
   );
 };
-

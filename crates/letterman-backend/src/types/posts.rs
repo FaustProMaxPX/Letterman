@@ -152,7 +152,7 @@ impl Validate for UpdatePostReq {
 fn validate_post_data(
     title: &str,
     metadata: &str,
-    content: &str,
+    _content: &str,
 ) -> Result<(), ValidateManipulatePostError> {
     if title.trim().is_empty() {
         return Err(ValidateManipulatePostError {
