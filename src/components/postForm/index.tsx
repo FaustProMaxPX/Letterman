@@ -175,7 +175,14 @@ export const PostForm = () => {
                 <Typography variant="h6" color={"primary"}>
                   元数据
                 </Typography>
-                <MapField id="metadata" />
+                <MapField
+                  id="metadata"
+                  onDelete={(key) => {
+                    const newMap = new Map(formCtx.values.metadata);
+                    newMap.delete(key);
+                    formCtx.setValue({ key: "metadata", value: newMap });
+                  }}
+                />
                 {isUpdate && (
                   <React.Fragment>
                     <Divider />
