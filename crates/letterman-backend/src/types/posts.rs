@@ -11,7 +11,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{deserialize_from_string, serialize_as_string};
+use super::{deserialize_from_string, serialize_as_string, PageValidationError};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -274,5 +274,35 @@ impl From<diesel::result::Error> for UpdatePostError {
             diesel::result::Error::NotFound => UpdatePostError::NotFound,
             _ => UpdatePostError::Database,
         }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostPageReq {
+    pub page: i32,
+    pub page_size: i32,
+    pub all: Option<bool>,
+}
+
+impl Validate for PostPageReq {
+    type Item = PostPageReq;
+
+    type Error = PageValidationError;
+
+    fn validate(self) -> Result<Self::Item, Self::Error> {
+        if self.page <= 0 {
+            return Err(PageValidationError {
+                field: "page",
+                msg: "page must be greater than 0",
+            });
+        };
+        if self.page_size <= 0 {
+            return Err(PageValidationError {
+                field: "page_size",
+                msg: "page_size must be greater than 0",
+            });
+        }
+        Ok(self)
     }
 }

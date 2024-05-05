@@ -1,5 +1,6 @@
 use diesel::{
-    BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl, RunQueryDsl,
+    BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl,
+    RunQueryDsl,
 };
 
 use crate::{
@@ -7,10 +8,10 @@ use crate::{
     traits::DbAction,
     types::{
         posts::{
-            BasePost, CreatePostError, Post, PostContent, QueryPostError, UpdatePostError,
-            ValidatedPostCreation, ValidatedPostUpdate,
+            BasePost, CreatePostError, Post, PostContent, PostPageReq, QueryPostError,
+            UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
         },
-        Page, PageReq,
+        Page,
     },
     utils::{Snowflake, TimeUtil},
 };
@@ -34,7 +35,7 @@ impl DbAction for PostCreator {
     }
 }
 
-pub struct PostPageQueryer(pub PageReq);
+pub struct PostPageQueryer(pub PostPageReq);
 
 impl DbAction for PostPageQueryer {
     type Item = Page<Post>;
@@ -45,11 +46,31 @@ impl DbAction for PostPageQueryer {
         self,
         conn: &mut diesel::prelude::MysqlConnection,
     ) -> Result<Self::Item, Self::Error> {
-        let (page, total) = crate::schema::t_post::table
-            .order_by(crate::schema::t_post::id.desc())
-            .paginate(self.0.page)
-            .page_size(self.0.page_size)
-            .load_and_count_pages::<BasePost>(conn)?;
+        use crate::schema::t_post::dsl::*;
+        let (page, total) = if self.0.all.is_some() && self.0.all.unwrap() {
+            crate::schema::t_post::table
+                .order_by(crate::schema::t_post::id.desc())
+                .paginate(self.0.page)
+                .page_size(self.0.page_size)
+                .load_and_count_pages::<BasePost>(conn)?
+        } else {
+            let max_versions = t_post
+                .select(diesel::dsl::sql::<(
+                    diesel::sql_types::BigInt,
+                    diesel::sql_types::Integer,
+                )>("post_id, MAX(version)"))
+                .group_by(post_id)
+                .load::<(i64, i32)>(conn)?;
+            max_versions
+                .iter()
+                .fold(t_post.into_boxed(), |query, p| {
+                    query.or_filter(post_id.eq(p.0).and(version.eq(p.1)))
+                })
+                .order_by(id.desc())
+                .paginate(self.0.page)
+                .page_size(self.0.page_size)
+                .load_and_count_pages::<BasePost>(conn)?
+        };
         let query = page
             .iter()
             .fold(t_post_content::table.into_boxed(), |query, p| {
@@ -180,9 +201,10 @@ mod post_db_test {
 
     #[actix_rt::test]
     async fn page_query_test() {
-        let resp = PostPageQueryer(PageReq {
+        let resp = PostPageQueryer(PostPageReq {
             page: 1,
             page_size: 10,
+            all: None,
         })
         .execute(database_pool().unwrap())
         .await
