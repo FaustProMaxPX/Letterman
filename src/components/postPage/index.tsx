@@ -120,18 +120,23 @@ const NavIconButton: React.FC<NavIconButtonProps> = ({
 
 export const PostPage = () => {
   const [posts, setPosts] = useState<Page<Post>>(EMPTY_PAGE);
+  const [all, setAll] = useState(false);
   const message = useMessage();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getPostPage(DEFAULT_PAGE, DEFAULT_PAGE_SIZE)
+    setLoading(true);
+    getPostPage({ page: DEFAULT_PAGE, pageSize: DEFAULT_PAGE_SIZE, all })
       .then((data) => {
         setPosts(data);
+        setLoading(false);
       })
       .catch((error) => {
         message.error(formatErrorMessage(error));
+        setLoading(false);
       });
-  }, [message.error]);
+  }, [message.error, all]);
 
   return (
     <Box
@@ -145,18 +150,41 @@ export const PostPage = () => {
     >
       <Box display={"flex"} justifyContent={"space-between"} mb={2}>
         <Typography variant="h5">文章列表</Typography>
-        <Button
-          type="button"
-          variant="contained"
-          onClick={() => navigate("/post/new")}
-        >
-          创建新文章
-        </Button>
+        <Box display={"flex"} justifyContent={"flex-end"} gap={1}>
+          <Button
+            type="button"
+            variant="contained"
+            onClick={() => navigate("/post/new")}
+          >
+            创建新文章
+          </Button>
+          {!all && (
+            <Button
+              type="button"
+              variant="contained"
+              onClick={() => {
+                setAll(true);
+              }}
+            >
+              查询所有文章
+            </Button>
+          )}
+          {all && (
+            <Button
+              type="button"
+              variant="contained"
+              onClick={() => setAll(false)}
+            >
+              仅显示最新版文章
+            </Button>
+          )}
+        </Box>
       </Box>
       <DataGrid
         columns={columns}
         rows={posts.data}
         rowCount={posts.total}
+        loading={loading}
         initialState={{
           pagination: {
             paginationModel: {
@@ -169,9 +197,19 @@ export const PostPage = () => {
         autoHeight
         disableRowSelectionOnClick
         onPaginationModelChange={(newModel) => {
-          getPostPage(newModel.page + 1, newModel.pageSize).then((data) => {
-            setPosts(data);
-          });
+          setLoading(true);
+          getPostPage({
+            page: newModel.page + 1,
+            pageSize: newModel.pageSize,
+            all: all,
+          })
+            .then((data) => {
+              setPosts(data);
+              setLoading(false);
+            })
+            .catch((error) => {
+              message.error(formatErrorMessage(error));
+            });
         }}
       />
     </Box>

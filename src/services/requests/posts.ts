@@ -6,3 +6,9 @@ export type CreatePostReq = Omit<
 >;
 
 export type UpdatePostReq = Omit<Post, "createTime" | "version" | "preVersion">
+
+export interface QueryPostPageReq {
+  page: number;
+  pageSize: number;
+  all?: boolean;
+}

@@ -2,16 +2,21 @@ import { transformResponse } from "./utils/transform-response";
 import axios from "axios";
 import { CommonResult, Page, Post } from "../types";
 import { BASE_URL } from "../constants";
-import { CreatePostReq, UpdatePostReq } from "./requests/posts";
+import {
+  CreatePostReq,
+  QueryPostPageReq,
+  UpdatePostReq,
+} from "./requests/posts";
 
-export const getPostPage = async (
-  page: number,
-  pageSize: number
-): Promise<Page<Post>> => {
+export const getPostPage = async ({
+  page,
+  pageSize,
+  all,
+}: QueryPostPageReq): Promise<Page<Post>> => {
   const data = await axios.get<CommonResult<Page<Post>>>(
     `${BASE_URL}/api/post/list`,
     {
-      params: { page, pageSize },
+      params: { page, pageSize, all },
     }
   );
   data.data.data.data.forEach((post) => {
@@ -37,12 +42,9 @@ export const getPost = async (id: string) => {
 };
 
 export const updatePost = async (post: UpdatePostReq) => {
-  const data = await axios.put<CommonResult<null>>(
-    `${BASE_URL}/api/post`,
-    {
-      ...post,
-      metadata: JSON.stringify(post.metadata),
-    }
-  );
+  const data = await axios.put<CommonResult<null>>(`${BASE_URL}/api/post`, {
+    ...post,
+    metadata: JSON.stringify(post.metadata),
+  });
   return transformResponse(data);
-}
+};
