@@ -1,4 +1,10 @@
-import { Box, Button, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  IconButtonProps,
+  Typography,
+} from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useEffect, useState } from "react";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../../constants";
@@ -7,17 +13,22 @@ import { EMPTY_PAGE, Page, Post } from "../../types";
 import { formatDate } from "../../utils/time-util";
 import useMessage from "../../hooks/useMessage";
 import { formatErrorMessage } from "../../services/utils/transform-response";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 const columns: GridColDef[] = [
   {
     field: "title",
     headerName: "标题",
+    headerAlign: "center",
     minWidth: 200,
   },
   {
     field: "content",
     headerName: "内容",
+    headerAlign: "center",
     minWidth: 400,
   },
   // {
@@ -28,11 +39,13 @@ const columns: GridColDef[] = [
   {
     field: "version",
     headerName: "版本",
+    headerAlign: "center",
     minWidth: 100,
   },
   {
     field: "createTime",
     headerName: "创建时间",
+    headerAlign: "center",
     minWidth: 200,
     valueFormatter: (params: Date) => {
       return formatDate(params);
@@ -41,10 +54,69 @@ const columns: GridColDef[] = [
   {
     field: "...",
     headerName: "...",
+    headerAlign: "center",
     minWidth: 100,
-    renderCell: (params) => <Link to={`/post/${params.row.id}`}>编辑</Link>,
+    renderCell: (params) => {
+      const [open, setOpen] = useState(false);
+      return (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+          }}
+        >
+          <NavIconButton
+            aria-label="edit"
+            color="primary"
+            path={`/post/${params.id}`}
+          >
+            <EditIcon />
+          </NavIconButton>
+          <IconButton
+            aria-label="delete"
+            color="error"
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
+            <DeleteIcon />
+          </IconButton>
+          <ConfirmDialog
+            open={open}
+            onClose={() => {
+              setOpen(false);
+            }}
+            onConfirm={() => {
+              console.log("confirm");
+              setOpen(false);
+            }}
+            title={"删除文章"}
+            content={"确定要删除这篇文章吗?"}
+          />
+        </Box>
+      );
+    },
   },
 ];
+
+interface NavIconButtonProps extends Omit<IconButtonProps, "onClick"> {
+  children: React.ReactNode;
+  path: string;
+}
+
+const NavIconButton: React.FC<NavIconButtonProps> = ({
+  children,
+  path,
+  ...restProps
+}) => {
+  const navigate = useNavigate();
+  return (
+    <IconButton onClick={() => navigate(path)} {...restProps}>
+      {children}
+    </IconButton>
+  );
+};
 
 export const PostPage = () => {
   const [posts, setPosts] = useState<Page<Post>>(EMPTY_PAGE);
@@ -63,11 +135,23 @@ export const PostPage = () => {
 
   return (
     <Box
-      sx={{ minHeight: 300, height: "100%", width: "100%", flexGrow: 1, overflow: "hidden" }}
+      sx={{
+        minHeight: 300,
+        height: "100%",
+        width: "100%",
+        flexGrow: 1,
+        overflow: "hidden",
+      }}
     >
       <Box display={"flex"} justifyContent={"space-between"} mb={2}>
         <Typography variant="h5">文章列表</Typography>
-        <Button type="button" variant="contained" onClick={() => navigate("/post/new")}>创建新文章</Button>
+        <Button
+          type="button"
+          variant="contained"
+          onClick={() => navigate("/post/new")}
+        >
+          创建新文章
+        </Button>
       </Box>
       <DataGrid
         columns={columns}

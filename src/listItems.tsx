@@ -4,14 +4,8 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import ArticleIcon from "@mui/icons-material/Article";
-import { Link } from "react-router-dom";
-import { styled } from "@mui/material";
+import { NavLink } from "./components/common/NavLink";
 
-// eslint-disable-next-line react-refresh/only-export-components
-const NavLink = styled(Link)({
-  textDecoration: "none",
-  color: "inherit",
-});
 
 export const mainListItems = (
   <React.Fragment>
