@@ -2,9 +2,13 @@ use actix_web::web::{Data, Json, Path, Query};
 use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
 
-use crate::operations::posts::{PostCreator, PostPageQueryer, PostQueryer, PostUpdater};
+use crate::operations::posts::{
+    PostCreator, PostDeleter, PostPageQueryer, PostQueryer, PostUpdater,
+};
 use crate::traits::{DbAction, DbActionError, Validate};
-use crate::types::posts::{CreatePostError, PostPageReq, QueryPostError, UpdatePostError, UpdatePostReq};
+use crate::types::posts::{
+    CreatePostError, DeletePostError, PostPageReq, QueryPostError, UpdatePostError, UpdatePostReq,
+};
 use crate::types::PageValidationError;
 use crate::{
     types::{posts::CreatePostReq, CommonResult},
@@ -41,6 +45,15 @@ impl ResponseError for PostResponseError {
             Self::ValidationError { .. } => StatusCode::BAD_REQUEST,
             Self::UserError { .. } => StatusCode::OK,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl From<PageValidationError> for PostResponseError {
+    fn from(item: PageValidationError) -> Self {
+        PostResponseError::ValidationError {
+            field: item.field,
+            msg: item.msg,
         }
     }
 }
@@ -84,6 +97,26 @@ impl From<DbActionError<UpdatePostError>> for PostResponseError {
     }
 }
 
+impl From<actix_web::error::Error> for PostResponseError {
+    fn from(err: actix_web::error::Error) -> Self {
+        PostResponseError::Other(err.to_string())
+    }
+}
+
+impl From<DbActionError<DeletePostError>> for PostResponseError {
+    fn from(item: DbActionError<DeletePostError>) -> Self {
+        match item {
+            DbActionError::Error(e) => match e {
+                DeletePostError::Database => PostResponseError::Other(e.to_string()),
+                DeletePostError::NotFound => PostResponseError::UserError { msg: e.to_string() },
+                DeletePostError::SyncError(e) => PostResponseError::UserError { msg: e },
+            },
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
 pub(crate) async fn create(
     state: Data<State>,
     req: Json<CreatePostReq>,
@@ -118,15 +151,6 @@ pub(crate) async fn update(
     Ok(HttpResponse::Ok().json(CommonResult::success_with_data(post)))
 }
 
-impl From<PageValidationError> for PostResponseError {
-    fn from(item: PageValidationError) -> Self {
-        PostResponseError::ValidationError {
-            field: item.field,
-            msg: item.msg,
-        }
-    }
-}
-
 pub(crate) async fn get_post(
     state: Data<State>,
     id: Path<i64>,
@@ -134,4 +158,13 @@ pub(crate) async fn get_post(
     let id = id.into_inner();
     let post = PostQueryer(id).execute(state.pool.clone()).await?;
     Ok(HttpResponse::Ok().json(CommonResult::success_with_data(post)))
+}
+
+pub(crate) async fn delete_post(
+    state: Data<State>,
+    id: Path<i64>,
+) -> Result<HttpResponse, PostResponseError> {
+    let id = id.into_inner();
+    PostDeleter(id).execute(state.pool.clone()).await?;
+    Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
 }

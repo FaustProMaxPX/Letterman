@@ -48,3 +48,10 @@ export const updatePost = async (post: UpdatePostReq) => {
   });
   return transformResponse(data);
 };
+
+export const deletePost = async (id: string) => {
+  const data = await axios.delete<CommonResult<null>>(
+    `${BASE_URL}/api/post/${id}`
+  );
+  return transformResponse(data);
+};

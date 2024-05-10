@@ -1,6 +1,5 @@
 use diesel::{
-    BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl,
-    RunQueryDsl,
+    BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl, RunQueryDsl,
 };
 
 use crate::{
@@ -8,8 +7,8 @@ use crate::{
     traits::DbAction,
     types::{
         posts::{
-            BasePost, CreatePostError, Post, PostContent, PostPageReq, QueryPostError,
-            UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
+            BasePost, CreatePostError, DeletePostError, Post, PostContent, PostPageReq,
+            QueryPostError, UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
         },
         Page,
     },
@@ -178,6 +177,33 @@ impl DbAction for PostQueryer {
             )
             .first(conn)?;
         Ok(Post::new(post, content))
+    }
+}
+
+pub struct PostDeleter(pub i64);
+
+impl DbAction for PostDeleter {
+    type Item = ();
+
+    type Error = DeletePostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        use schema::t_post_content::dsl::*;
+
+        let post: BasePost = schema::t_post::table.find(self.0).first(conn)?;
+        let pid = post.post_id;
+        let p_version = post.version;
+        diesel::delete(t_post.filter(schema::t_post::id.eq(post.id))).execute(conn)?;
+        diesel::delete(
+            t_post_content.filter(
+                schema::t_post_content::post_id
+                    .eq(pid)
+                    .and(schema::t_post_content::version.eq(p_version)),
+            ),
+        )
+        .execute(conn)?;
+        Ok(())
     }
 }
 

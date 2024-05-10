@@ -255,7 +255,7 @@ impl From<diesel::result::Error> for QueryPostError {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Display)]
+#[derive(Debug, Clone, Serialize, Display, Error)]
 pub enum UpdatePostError {
     #[display(fmt = "database error")]
     Database,
@@ -265,14 +265,41 @@ pub enum UpdatePostError {
     NotLatestVersion,
 }
 
-impl std::error::Error for UpdatePostError {}
-
 impl From<diesel::result::Error> for UpdatePostError {
     fn from(item: diesel::result::Error) -> Self {
         error!("update post error: database error, e: {item}");
         match item {
             diesel::result::Error::NotFound => UpdatePostError::NotFound,
             _ => UpdatePostError::Database,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum DeletePostError {
+    Database,
+    NotFound,
+    SyncError(String),
+}
+
+impl std::error::Error for DeletePostError {}
+
+impl From<diesel::result::Error> for DeletePostError {
+    fn from(item: diesel::result::Error) -> Self {
+        error!("delete post error: database error, e: {item}");
+        match item {
+            diesel::result::Error::NotFound => DeletePostError::NotFound,
+            _ => DeletePostError::Database,
+        }
+    }
+}
+
+impl std::fmt::Display for DeletePostError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            DeletePostError::Database => write!(f, "database error"),
+            DeletePostError::SyncError(e) => write!(f, "sync error: {e}"),
+            DeletePostError::NotFound => write!(f, "not found post"),
         }
     }
 }
