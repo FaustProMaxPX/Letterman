@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::traits::Validate;
 
 pub mod posts;
+pub mod github_record;
 
 #[derive(Serialize)]
 pub struct CommonResult<T> {
