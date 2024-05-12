@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -57,9 +58,9 @@ export const PostForm = () => {
       if (values.title === undefined || values.title.length === 0) {
         errors.title = "文章标题不能为空";
       }
-      if (values.content === undefined || values.content.length === 0) {
-        errors.content = "文章内容不能为空";
-      }
+      // if (values.content === undefined || values.content.length === 0) {
+      //   errors.content = "文章内容不能为空";
+      // }
       if (values.metadata === undefined) {
         return errors;
       }
@@ -157,7 +158,7 @@ export const PostForm = () => {
                 <QuillField
                   id="content"
                   theme="snow"
-                  style={{ marginTop: "10px", height: "40vh" }}
+                  style={{ marginTop: "10px", height: "100%" }}
                 />
               </Paper>
             </Grid>
@@ -207,22 +208,23 @@ export const PostForm = () => {
               </Paper>
             </Grid>
           </Grid>
-          <Button
-            variant="contained"
-            startIcon={<CreateIcon />}
-            type="submit"
-            sx={{ mt: 3 }}
-          >
-            提交
-          </Button>
-          <Button
-            type="button"
-            variant="contained"
-            sx={{ float: "right", mt: 3, mr: 3 }}
-            onClick={() => setOpen(true)}
-          >
-            添加新的元数据
-          </Button>
+          <Box justifyContent={"space-between"} sx={{ mt: 3 }}>
+            <Button
+              variant="contained"
+              startIcon={<CreateIcon />}
+              type="submit"
+            >
+              提交
+            </Button>
+            <Button
+              type="button"
+              variant="contained"
+              sx={{ float: "right", mr: 3 }}
+              onClick={() => setOpen(true)}
+            >
+              添加新的元数据
+            </Button>
+          </Box>
         </form>
         <MetadataDialogForm
           open={open}

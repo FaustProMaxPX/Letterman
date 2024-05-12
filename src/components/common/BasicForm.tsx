@@ -2,6 +2,7 @@ import { IconButton, InputAdornment, TextField } from "@mui/material";
 import React, { createContext, useContext, useState } from "react";
 import ReactQuill from "react-quill";
 import DeleteIcon from "@mui/icons-material/Delete";
+import "../../css/quill.css";
 
 export interface ValidateResponse {
   success: boolean;
@@ -134,12 +135,13 @@ export const QuillField = (props: QuillProps) => {
         value={ctx?.values[props.id] || ""}
         onChange={(value) => ctx?.setValue({ key: props.id, value: value })}
         style={props.style}
+        className="custom-quill-container"
       />
-      {ctx?.errors[props.id] && (
+      {/* {ctx?.errors[props.id] && (
         <div className="MuiFormHelperText-root Mui-error MuiFormHelperText-sizeMedium MuiFormHelperText-contained css-1wc848c-MuiFormHelperText-root">
           {ctx?.errors[props.id]}
         </div>
-      )}
+      )} */}
     </>
   );
 };
