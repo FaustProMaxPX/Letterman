@@ -26,7 +26,6 @@ extern crate derive_more;
 extern crate snowflake;
 
 pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<dyn Error>> {
-    dotenv::dotenv().ok();
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::new(db_url);
     let pool = Pool::builder().build(manager)?;
@@ -34,9 +33,12 @@ pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<d
 }
 
 fn init_config() -> Result<AppConfig, Box<dyn Error>> {
-    dotenv::dotenv().ok();
-    let github_token = env::var("GITHUB_TOKEN").unwrap_or_default();
-    Ok(AppConfig { github_token })
+    let github_token = env::var("GITHUB_TOKEN").ok();
+    let repository = env::var("GITHUB_REPOSITORY").ok();
+    Ok(AppConfig {
+        github_token,
+        github_repository: repository,
+    })
 }
 
 fn init_logger() {
@@ -51,17 +53,23 @@ struct State {
 
 #[derive(Clone)]
 struct AppConfig {
-    github_token: String,
+    github_repository: Option<String>,
+    github_token: Option<String>,
 }
 
 impl AppConfig {
-    pub fn get_github_token(&self) -> &str {
-        self.github_token.as_str()
+    pub fn get_github_token(&self) -> Option<String> {
+        self.github_token.clone()
+    }
+
+    pub fn get_github_repository(&self) -> Option<String> {
+        self.github_repository.clone()
     }
 }
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv::dotenv().ok();
     init_logger();
     let config = init_config()?;
     let pool = database_pool()?;

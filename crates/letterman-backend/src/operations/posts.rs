@@ -207,6 +207,31 @@ impl DbAction for PostDeleter {
     }
 }
 
+pub struct LatestPostQueryerByPostId(pub i64);
+
+impl DbAction for LatestPostQueryerByPostId {
+    type Item = Post;
+
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        use schema::t_post_content::dsl::*;
+        let base: BasePost = t_post
+            .filter(schema::t_post::post_id.eq(self.0))
+            .order_by(schema::t_post::version.desc())
+            .first(conn)?;
+        let post_content: PostContent = t_post_content
+            .filter(
+                schema::t_post_content::post_id
+                    .eq(self.0)
+                    .and(schema::t_post_content::version.eq(base.version)),
+            )
+            .first(conn)?;
+        Ok(Post::new(base, post_content))
+    }
+}
+
 #[cfg(test)]
 mod post_db_test {
 

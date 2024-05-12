@@ -49,6 +49,13 @@ impl Post {
             update_time: base.update_time,
         }
     }
+    pub fn get_content(&self) -> String {
+        self.content.clone()
+    }
+
+    pub fn get_version(&self) -> i32 {
+        self.version 
+    }
 }
 
 #[derive(Insertable, Queryable, Selectable, Debug, Clone)]

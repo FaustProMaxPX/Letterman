@@ -3,11 +3,13 @@ use std::string::FromUtf8Error;
 use base64::Engine;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::traits::DbActionError;
 
-#[derive(Insertable, Queryable, Selectable, Debug, Clone)]
+use super::posts::QueryPostError;
+
+#[derive(Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_github_post_record)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct GithubRecord {
@@ -20,6 +22,38 @@ pub struct GithubRecord {
     pub url: String,
     pub create_time: NaiveDateTime,
     pub update_time: NaiveDateTime,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::t_github_post_record)]
+#[diesel(check_for_backend(diesel::mysql::Mysql))]
+pub struct InsertableGithubRecord {
+    pub post_id: i64,
+    pub version: i32,
+    pub path: String,
+    pub sha: String,
+    pub repository: String,
+    pub url: String,
+}
+
+impl InsertableGithubRecord {
+    pub fn new(
+        post_id: i64,
+        version: i32,
+        path: String,
+        sha: String,
+        repository: String,
+        url: String,
+    ) -> Self {
+        Self {
+            post_id,
+            version,
+            path,
+            sha,
+            repository,
+            url,
+        }
+    }
 }
 
 /// schema of response from github
@@ -54,6 +88,41 @@ impl GithubArticleRecord {
     }
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct CreateContentParam {
+    message: String,
+    content: String,
+}
+
+impl CreateContentParam {
+    pub fn new(message: String, content: String) -> CreateContentParam {
+        CreateContentParam { message, content }
+    }
+}
+
+pub struct UpdateContentParam {
+    message: String,
+    content: String,
+    sha: String,
+}
+
+impl UpdateContentParam {
+    pub fn new(message: String, content: String, sha: String) -> UpdateContentParam {
+        UpdateContentParam {
+            message,
+            content,
+            sha,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct WriteContentResp {
+    pub sha: String,
+    pub path: String,
+    pub url: String,
+}
+
 #[derive(Debug, Clone, Display)]
 pub enum DecodeError {
     #[display(fmt = "decode failed, {}, {}", _0, _1)]
@@ -71,7 +140,7 @@ impl From<base64::DecodeError> for DecodeError {
 }
 
 impl From<FromUtf8Error> for DecodeError {
-    fn from(value: FromUtf8Error) -> Self {
+    fn from(_: FromUtf8Error) -> Self {
         DecodeError::Convert
     }
 }
@@ -100,6 +169,12 @@ pub enum GithubSyncError {
     Builder,
     #[display(fmt = "request failed")]
     Request,
+    #[display(fmt = "Please set GITHUB_TOKEN env if you want to use github synchronize")]
+    NoToken,
+    #[display(fmt = "System cannot decide push or pull")]
+    Ambiguous,
+    #[display(fmt = "not found")]
+    NotFound,
 }
 
 impl std::error::Error for GithubSyncError {}
@@ -124,6 +199,42 @@ impl From<QueryGithubRecordError> for GithubSyncError {
     }
 }
 
+impl From<DbActionError<QueryPostError>> for GithubSyncError {
+    fn from(value: DbActionError<QueryPostError>) -> Self {
+        match value {
+            DbActionError::Error(e) => e.into(),
+            DbActionError::Pool(_) => GithubSyncError::Database,
+            DbActionError::Canceled => GithubSyncError::Database,
+        }
+    }
+}
+
+impl From<QueryPostError> for GithubSyncError {
+    fn from(value: QueryPostError) -> Self {
+        match value {
+            QueryPostError::Database => GithubSyncError::Database,
+            QueryPostError::NotFound => GithubSyncError::NotFound,
+        }
+    }
+}
+
+impl From<DbActionError<CreateGithubRecordError>> for GithubSyncError {
+    fn from(value: DbActionError<CreateGithubRecordError>) -> Self {
+        match value {
+            DbActionError::Error(e) => e.into(),
+            DbActionError::Pool(_) | DbActionError::Canceled => GithubSyncError::Database,
+        }
+    }
+}
+
+impl From<CreateGithubRecordError> for GithubSyncError {
+    fn from(value: CreateGithubRecordError) -> Self {
+        match value {
+            CreateGithubRecordError::Database => GithubSyncError::Database,
+        }
+    }
+}
+
 impl From<reqwest::Error> for GithubSyncError {
     fn from(value: reqwest::Error) -> Self {
         if value.is_builder() {
@@ -132,3 +243,16 @@ impl From<reqwest::Error> for GithubSyncError {
         GithubSyncError::NetworkError(value.to_string())
     }
 }
+
+#[derive(Debug, Clone, Display, Error)]
+pub enum CreateGithubRecordError {
+    #[display(fmt = "database error")]
+    Database,
+}
+
+impl From<diesel::result::Error> for CreateGithubRecordError {
+    fn from(_item: diesel::result::Error) -> Self {
+        CreateGithubRecordError::Database
+    }
+}
+
