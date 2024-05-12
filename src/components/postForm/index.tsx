@@ -278,13 +278,16 @@ const MetadataDialogForm = (props: MetadataDialogFormProps) => {
       onClose={props.onClose}
       PaperProps={{
         component: "form",
+        onSubmit: form.handleSubmit,
       }}
     >
       <DialogTitle>添加元数据</DialogTitle>
-      <DialogContent>
-        <FormField id="key" label="key" />
-        <FormField id="value" label="value" />
-      </DialogContent>
+      <FormContext.Provider value={form}>
+        <DialogContent>
+          <FormField id="key" label="key" />
+          <FormField id="value" label="value" />
+        </DialogContent>
+      </FormContext.Provider>
       <DialogActions>
         <Button type="submit">添加</Button>
         <Button onClick={props.onClose}>取消</Button>
