@@ -7,8 +7,9 @@ use crate::{
     traits::DbAction,
     types::{
         posts::{
-            BasePost, CreatePostError, DeletePostError, Post, PostContent, PostPageReq,
-            QueryPostError, UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
+            BasePost, CreatePostError, DeletePostError, InsertableBasePost, InsertablePostContent,
+            Post, PostContent, PostPageReq, QueryPostError, UpdatePostError, ValidatedPostCreation,
+            ValidatedPostUpdate,
         },
         Page,
     },
@@ -119,35 +120,31 @@ impl DbAction for PostUpdater {
             return Err(UpdatePostError::NotLatestVersion);
         }
         let new_version = prev.version + 1;
-        let base = BasePost {
+        let base = InsertableBasePost {
             id: Snowflake::next_id(),
             post_id: prev.post_id,
             title: self.0.title,
             metadata: self.0.metadata,
             version: new_version,
             prev_version: prev.version,
-            create_time: prev.create_time,
-            update_time: TimeUtil::now(),
         };
-        let content = PostContent {
+        let content = InsertablePostContent {
             id: Snowflake::next_id(),
             post_id: prev.post_id,
             version: new_version,
             content: self.0.content,
             prev_version: prev.version,
-            create_time: prev.create_time,
-            update_time: TimeUtil::now(),
         };
 
         insert_post(conn, base.clone(), content.clone())?;
-        Ok(Post::new(base, content))
+        Ok((base, content).into())
     }
 }
 
 fn insert_post(
     conn: &mut MysqlConnection,
-    post: BasePost,
-    content: PostContent,
+    post: InsertableBasePost,
+    content: InsertablePostContent,
 ) -> Result<(), diesel::result::Error> {
     conn.transaction(|conn| {
         diesel::insert_into(crate::schema::t_post::table)
