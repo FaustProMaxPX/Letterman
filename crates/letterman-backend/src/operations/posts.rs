@@ -13,7 +13,7 @@ use crate::{
         },
         Page,
     },
-    utils::{Snowflake, TimeUtil},
+    utils::Snowflake,
 };
 
 use super::pagination::Paginate;
@@ -92,7 +92,7 @@ impl DbAction for PostPageQueryer {
             .into_iter()
             .map(|p| {
                 let content = contents_map.get(&(p.post_id, p.version)).unwrap();
-                Post::new(p, content.clone())
+                Post::package(p, content.clone())
             })
             .collect::<Vec<Post>>();
 
@@ -173,7 +173,7 @@ impl DbAction for PostQueryer {
                     .and(schema::t_post_content::version.eq(post.version)),
             )
             .first(conn)?;
-        Ok(Post::new(post, content))
+        Ok(Post::package(post, content))
     }
 }
 
@@ -225,7 +225,7 @@ impl DbAction for LatestPostQueryerByPostId {
                     .and(schema::t_post_content::version.eq(base.version)),
             )
             .first(conn)?;
-        Ok(Post::new(base, post_content))
+        Ok(Post::package(base, post_content))
     }
 }
 

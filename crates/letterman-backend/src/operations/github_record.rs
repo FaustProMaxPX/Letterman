@@ -4,9 +4,11 @@ use crate::{
     schema,
     traits::DbAction,
     types::github_record::{
-        CreateGithubRecordError, GithubRecord, InsertableGithubRecord, QueryGithubRecordError,
+        GithubRecord, InsertableGithubRecord, QueryGithubRecordError,
     },
 };
+
+use super::remote::github::CreateGithubRecordError;
 
 pub struct GithubRecordQueryerByPostId(pub i64);
 

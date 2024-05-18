@@ -36,7 +36,31 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn new(base: BasePost, content: PostContent) -> Self {
+    pub fn new(
+        id: i64,
+        post_id: i64,
+        title: String,
+        metadata: Value,
+        content: String,
+        version: i32,
+        pre_version: i32,
+        create_time: NaiveDateTime,
+        update_time: NaiveDateTime,
+    ) -> Self {
+        Post {
+            id,
+            post_id,
+            title,
+            metadata,
+            content,
+            version,
+            pre_version,
+            create_time,
+            update_time,
+        }
+    }
+
+    pub fn package(base: BasePost, content: PostContent) -> Self {
         Self {
             id: base.id,
             post_id: base.post_id,
@@ -49,8 +73,13 @@ impl Post {
             update_time: base.update_time,
         }
     }
-    pub fn get_content(&self) -> String {
-        self.content.clone()
+
+    pub fn get_post_id(&self) -> i64 {
+        self.post_id
+    }
+
+    pub fn get_content(&self) -> &str {
+        &self.content
     }
 
     pub fn get_version(&self) -> i32 {
