@@ -1,7 +1,7 @@
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
 
-use crate::{traits::DbAction, types::posts::Post};
+use crate::{traits::DbAction, types::posts::{InsertableBasePost, InsertablePostContent, Post}};
 
 use self::types::SyncError;
 
@@ -28,9 +28,9 @@ pub trait SyncAction {
     /// pull latest post in outer platform by the param provided by syncer
     async fn pull(
         &self,
-        post_id: i64,
+        post: &Post,
         pool: Pool<ConnectionManager<MysqlConnection>>,
-    ) -> Result<Option<Post>, SyncError>;
+    ) -> Result<Option<(InsertableBasePost, InsertablePostContent)>, SyncError>;
 
     /// check if the article is changed
     /// return (is_latest, is_older_version, never_synced)

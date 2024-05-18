@@ -121,6 +121,7 @@ impl GithubArticleRecord {
             _ => Err(DecodeError::UnsupportedEncoding(self.encoding.clone())),
         }
     }
+
 }
 
 #[derive(Debug, Serialize, Clone)]

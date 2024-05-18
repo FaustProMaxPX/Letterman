@@ -1,7 +1,8 @@
-use std::{cell::RefCell, string::FromUtf8Error, time::Duration};
+use std::{cell::RefCell, collections::HashMap, string::FromUtf8Error, time::Duration};
 
 use base64::Engine;
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
+use markdown::{mdast::Node, Constructs};
 use r2d2::Pool;
 use reqwest::header::{self, HeaderValue};
 use serde::Deserialize;
@@ -14,9 +15,9 @@ use crate::{
             CreateContentParam, GithubRecord, InsertableGithubRecord, QueryGithubRecordError,
             UpdateContentParam, WriteContentResp,
         },
-        posts::Post,
+        posts::{InsertableBasePost, InsertablePostContent, Post},
     },
-    utils::TimeUtil,
+    utils::Snowflake,
 };
 
 use super::{
@@ -107,26 +108,38 @@ impl SyncAction for GithubSyncer {
 
     async fn pull(
         &self,
-        post_id: i64,
+        post: &Post,
         pool: Pool<ConnectionManager<MysqlConnection>>,
-    ) -> Result<Option<Post>, super::SyncError> {
-        let content = self.get_github_post(post_id, pool.clone()).await?;
-        // TODO: parse content
-        if let Some(content) = content {
-            Ok(Some(Post::new(
-                -1,
-                post_id,
-                "".to_string(),
-                serde_json::Value::Null,
-                content.content.to_string(),
-                -1,
-                -1,
-                TimeUtil::now(),
-                TimeUtil::now(),
-            )))
-        } else {
-            Ok(None)
+    ) -> Result<Option<(InsertableBasePost, InsertablePostContent)>, super::SyncError> {
+        let content = self
+            .get_github_post(post.get_post_id(), pool.clone())
+            .await?;
+        if content.is_none() {
+            return Ok(None);
         }
+
+        let res = extract(&content.unwrap().content)?;
+
+        let base = InsertableBasePost {
+            id: Snowflake::next_id(),
+            post_id: post.get_post_id(),
+            version: post.get_version() + 1,
+            prev_version: post.get_version(),
+            title: if let Some(title) = res.title {
+                title
+            } else {
+                post.title().to_string()
+            },
+            metadata: serde_json::to_string(&res.metadata)?,
+        };
+        let content = InsertablePostContent {
+            id: Snowflake::next_id(),
+            post_id: post.get_post_id(),
+            content: res.content,
+            version: post.get_version() + 1,
+            prev_version: post.get_version(),
+        };
+        Ok(Some((base, content)))
     }
 
     async fn check_changed(
@@ -285,6 +298,84 @@ impl GithubArticleRecord {
     }
 }
 
+struct ExtractResult {
+    title: Option<String>,
+    content: String,
+    metadata: HashMap<String, String>,
+}
+
+/// extract metadata from content
+/// return (title, content, metadata)
+fn extract(content: &str) -> Result<ExtractResult, markdown::message::Message> {
+    let constructs = Constructs {
+        frontmatter: true,
+        ..Constructs::default()
+    };
+    let ast = markdown::to_mdast(
+        content,
+        &markdown::ParseOptions {
+            constructs,
+            ..markdown::ParseOptions::default()
+        },
+    )?;
+    let content = {
+        if let Some(idx) = content.find("---") {
+            if let Some(idx2) = content[idx + 3..].find("---") {
+                &content[idx + idx2 + 6..]
+            } else {
+                content
+            }
+        } else {
+            content
+        }
+    };
+
+    if let Some(children) = ast.children() {
+        let mut frontmatters = vec![];
+        for ele in children {
+            frontmatters.extend(dfs(ele));
+        }
+        let mut metadata = HashMap::new();
+        let mut title = None;
+        for ele in frontmatters {
+            if ele.0 == "title" {
+                title = Some(ele.1);
+                continue;
+            }
+            metadata.insert(ele.0, ele.1);
+        }
+        Ok(ExtractResult {
+            title,
+            content: content.to_string(),
+            metadata,
+        })
+    } else {
+        Ok(ExtractResult {
+            title: None,
+            content: content.to_string(),
+            metadata: HashMap::new(),
+        })
+    }
+}
+
+fn dfs(node: &markdown::mdast::Node) -> Vec<(String, String)> {
+    let mut ret = vec![];
+    if let Node::Yaml(markdown::mdast::Yaml { value, .. }) = node {
+        let mut split = value.split(':');
+        let key = split.next().unwrap();
+        let value = split.next().unwrap();
+        ret.push((key.to_string(), value.to_string()));
+    }
+    let children = node.children();
+    if let Some(children) = children {
+        for child in children {
+            ret.extend(dfs(child))
+        }
+    }
+
+    ret
+}
+
 #[derive(Debug, Clone, Display)]
 pub enum DecodeError {
     #[display(fmt = "decode failed, {}, {}", _0, _1)]
@@ -407,6 +498,19 @@ impl From<GithubSyncError> for SyncError {
         }
     }
 }
+
+impl From<markdown::message::Message> for SyncError {
+    fn from(value: markdown::message::Message) -> Self {
+        SyncError::Other(format!("failed to parse markdown: {}", value))
+    }
+}
+
+impl From<serde_json::Error> for SyncError {
+    fn from(value: serde_json::Error) -> Self {
+        SyncError::Other(format!("failed to parse json: {}", value))
+    }
+}
+
 mod github_sync_test {
     use std::env;
 
@@ -414,6 +518,7 @@ mod github_sync_test {
 
     use super::*;
     use base64::prelude::*;
+    use markdown::mdast::{Node, Yaml};
 
     #[actix_web::test]
     async fn get_content_test() {
@@ -434,5 +539,24 @@ mod github_sync_test {
         let content = resp.json::<GithubArticleRecord>().await.unwrap();
         let content = content.decode_content().unwrap();
         println!("{:?}", content);
+    }
+
+    #[test]
+    fn markdown_extract() {
+        let content = "---\na:b\n---\ncontent";
+        let constructs = Constructs {
+            frontmatter: true,
+            ..Constructs::default()
+        };
+        let ast = markdown::to_mdast(
+            content,
+            &markdown::ParseOptions {
+                constructs,
+                ..markdown::ParseOptions::default()
+            },
+        )
+        .unwrap();
+
+        println!("{:#?}", ast);
     }
 }

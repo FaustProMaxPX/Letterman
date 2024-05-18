@@ -85,6 +85,10 @@ impl Post {
     pub fn get_version(&self) -> i32 {
         self.version
     }
+    
+    pub fn title(&self) -> &str {
+        &self.title
+    }
 }
 
 impl From<(InsertableBasePost, InsertablePostContent)> for Post {
