@@ -26,7 +26,6 @@ extern crate derive_more;
 extern crate snowflake;
 
 pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<dyn Error>> {
-    dotenv::dotenv().ok();
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::new(db_url);
     let pool = Pool::builder().build(manager)?;
@@ -45,6 +44,7 @@ struct State {
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv::dotenv().ok();
     init_logger();
     let pool = database_pool()?;
     HttpServer::new(move || {

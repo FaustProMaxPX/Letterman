@@ -7,12 +7,13 @@ use crate::{
     traits::DbAction,
     types::{
         posts::{
-            BasePost, CreatePostError, DeletePostError, Post, PostContent, PostPageReq,
-            QueryPostError, UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
+            BasePost, CreatePostError, DeletePostError, InsertableBasePost, InsertablePostContent,
+            Post, PostContent, PostPageReq, QueryPostError, UpdatePostError, ValidatedPostCreation,
+            ValidatedPostUpdate,
         },
         Page,
     },
-    utils::{Snowflake, TimeUtil},
+    utils::Snowflake,
 };
 
 use super::pagination::Paginate;
@@ -31,6 +32,19 @@ impl DbAction for PostCreator {
         let (post, content) = self.0.to_post_po();
 
         insert_post(conn, post, content).map_err(CreatePostError::from)
+    }
+}
+
+pub struct PostDirectCreator(pub Post);
+
+impl DbAction for PostDirectCreator {
+    type Item = ();
+
+    type Error = CreatePostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        let (base, content) = self.0.to_po();
+        insert_post(conn, base, content).map_err(CreatePostError::from)
     }
 }
 
@@ -91,7 +105,7 @@ impl DbAction for PostPageQueryer {
             .into_iter()
             .map(|p| {
                 let content = contents_map.get(&(p.post_id, p.version)).unwrap();
-                Post::new(p, content.clone())
+                Post::package(p, content.clone())
             })
             .collect::<Vec<Post>>();
 
@@ -119,35 +133,31 @@ impl DbAction for PostUpdater {
             return Err(UpdatePostError::NotLatestVersion);
         }
         let new_version = prev.version + 1;
-        let base = BasePost {
+        let base = InsertableBasePost {
             id: Snowflake::next_id(),
             post_id: prev.post_id,
             title: self.0.title,
             metadata: self.0.metadata,
             version: new_version,
             prev_version: prev.version,
-            create_time: prev.create_time,
-            update_time: TimeUtil::now(),
         };
-        let content = PostContent {
+        let content = InsertablePostContent {
             id: Snowflake::next_id(),
             post_id: prev.post_id,
             version: new_version,
             content: self.0.content,
             prev_version: prev.version,
-            create_time: prev.create_time,
-            update_time: TimeUtil::now(),
         };
 
         insert_post(conn, base.clone(), content.clone())?;
-        Ok(Post::new(base, content))
+        Ok((base, content).into())
     }
 }
 
 fn insert_post(
     conn: &mut MysqlConnection,
-    post: BasePost,
-    content: PostContent,
+    post: InsertableBasePost,
+    content: InsertablePostContent,
 ) -> Result<(), diesel::result::Error> {
     conn.transaction(|conn| {
         diesel::insert_into(crate::schema::t_post::table)
@@ -176,7 +186,7 @@ impl DbAction for PostQueryer {
                     .and(schema::t_post_content::version.eq(post.version)),
             )
             .first(conn)?;
-        Ok(Post::new(post, content))
+        Ok(Post::package(post, content))
     }
 }
 
@@ -204,6 +214,31 @@ impl DbAction for PostDeleter {
         )
         .execute(conn)?;
         Ok(())
+    }
+}
+
+pub struct LatestPostQueryerByPostId(pub i64);
+
+impl DbAction for LatestPostQueryerByPostId {
+    type Item = Post;
+
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        use schema::t_post_content::dsl::*;
+        let base: BasePost = t_post
+            .filter(schema::t_post::post_id.eq(self.0))
+            .order_by(schema::t_post::version.desc())
+            .first(conn)?;
+        let post_content: PostContent = t_post_content
+            .filter(
+                schema::t_post_content::post_id
+                    .eq(self.0)
+                    .and(schema::t_post_content::version.eq(base.version)),
+            )
+            .first(conn)?;
+        Ok(Post::package(base, post_content))
     }
 }
 

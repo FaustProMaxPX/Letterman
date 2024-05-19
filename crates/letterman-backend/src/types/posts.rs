@@ -36,7 +36,31 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn new(base: BasePost, content: PostContent) -> Self {
+    pub fn new(
+        id: i64,
+        post_id: i64,
+        title: String,
+        metadata: Value,
+        content: String,
+        version: i32,
+        pre_version: i32,
+        create_time: NaiveDateTime,
+        update_time: NaiveDateTime,
+    ) -> Self {
+        Post {
+            id,
+            post_id,
+            title,
+            metadata,
+            content,
+            version,
+            pre_version,
+            create_time,
+            update_time,
+        }
+    }
+
+    pub fn package(base: BasePost, content: PostContent) -> Self {
         Self {
             id: base.id,
             post_id: base.post_id,
@@ -49,9 +73,93 @@ impl Post {
             update_time: base.update_time,
         }
     }
+
+    pub fn get_post_id(&self) -> i64 {
+        self.post_id
+    }
+
+    pub fn get_content(&self) -> &str {
+        &self.content
+    }
+
+    pub fn get_version(&self) -> i32 {
+        self.version
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn to_po(self) -> (InsertableBasePost, InsertablePostContent) {
+        let base = InsertableBasePost {
+            id: Snowflake::next_id(),
+            post_id: self.post_id,
+            title: self.title,
+            metadata: serde_json::to_string(&self.metadata).unwrap(),
+            version: self.version,
+            prev_version: self.pre_version,
+        };
+        let content = InsertablePostContent {
+            id: Snowflake::next_id(),
+            post_id: self.post_id,
+            version: self.version,
+            content: self.content,
+            prev_version: self.pre_version,
+        };
+        (base, content)
+    }
 }
 
-#[derive(Insertable, Queryable, Selectable, Debug, Clone)]
+impl From<(InsertableBasePost, InsertablePostContent)> for Post {
+    fn from(value: (InsertableBasePost, InsertablePostContent)) -> Self {
+        let (base, content) = value;
+        Self {
+            id: base.id,
+            post_id: base.post_id,
+            title: base.title,
+            metadata: serde_json::from_str(&base.metadata).unwrap(),
+            content: content.content,
+            version: base.version,
+            pre_version: base.prev_version,
+            create_time: TimeUtil::now(),
+            update_time: TimeUtil::now(),
+        }
+    }
+}
+
+#[derive(Insertable, Clone, Debug)]
+#[diesel(table_name = crate::schema::t_post)]
+#[diesel(check_for_backend(diesel::mysql::Mysql))]
+pub struct InsertableBasePost {
+    pub id: i64,
+    pub post_id: i64,
+    pub title: String,
+    pub metadata: String,
+    pub version: i32,
+    pub prev_version: i32,
+}
+
+impl InsertableBasePost {
+    pub fn new(
+        id: i64,
+        post_id: i64,
+        title: String,
+        metadata: String,
+        version: i32,
+        prev_version: i32,
+    ) -> Self {
+        Self {
+            id,
+            post_id,
+            title,
+            metadata,
+            version,
+            prev_version,
+        }
+    }
+}
+
+#[derive(Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_post)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct BasePost {
@@ -65,7 +173,30 @@ pub struct BasePost {
     pub update_time: NaiveDateTime,
 }
 
-#[derive(Insertable, Queryable, Debug, Clone)]
+#[derive(Insertable, Clone, Debug)]
+#[diesel(table_name = crate::schema::t_post_content)]
+#[diesel(check_for_backend(diesel::mysql::Mysql))]
+pub struct InsertablePostContent {
+    pub id: i64,
+    pub post_id: i64,
+    pub version: i32,
+    pub content: String,
+    pub prev_version: i32,
+}
+
+impl InsertablePostContent {
+    pub fn new(id: i64, post_id: i64, version: i32, content: String, prev_version: i32) -> Self {
+        Self {
+            id,
+            post_id,
+            version,
+            content,
+            prev_version,
+        }
+    }
+}
+
+#[derive(Queryable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_post_content)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct PostContent {
@@ -199,26 +330,22 @@ pub struct ValidatedPostCreation {
 }
 
 impl ValidatedPostCreation {
-    pub fn to_post_po(self) -> (BasePost, PostContent) {
-        let post = BasePost {
+    pub fn to_post_po(self) -> (InsertableBasePost, InsertablePostContent) {
+        let post = InsertableBasePost {
             id: Snowflake::next_id(),
             post_id: Snowflake::next_id(),
             title: self.title,
             metadata: self.metadata,
             version: 1,
             prev_version: 0,
-            create_time: TimeUtil::now(),
-            update_time: TimeUtil::now(),
         };
 
-        let content = PostContent {
+        let content = InsertablePostContent {
             id: Snowflake::next_id(),
             post_id: post.post_id,
             version: 1,
             content: self.content,
             prev_version: 0,
-            create_time: TimeUtil::now(),
-            update_time: TimeUtil::now(),
         };
         (post, content)
     }
