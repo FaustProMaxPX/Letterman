@@ -5,7 +5,6 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_github_post_record)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
@@ -121,7 +120,6 @@ impl GithubArticleRecord {
             _ => Err(DecodeError::UnsupportedEncoding(self.encoding.clone())),
         }
     }
-
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -134,7 +132,7 @@ impl CreateContentParam {
     pub fn new(message: &str, content: &str) -> CreateContentParam {
         CreateContentParam {
             message: message.to_string(),
-            content: content.to_string(),
+            content: encode_content(content),
         }
     }
 }
@@ -150,14 +148,23 @@ impl UpdateContentParam {
     pub fn new(message: &str, content: &str, sha: &str) -> UpdateContentParam {
         UpdateContentParam {
             message: message.to_string(),
-            content: content.to_string(),
+            content: encode_content(content),
             sha: sha.to_string(),
         }
     }
 }
 
+fn encode_content(content: &str) -> String {
+    base64::prelude::BASE64_STANDARD.encode(content)
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct WriteContentResp {
+    pub content: WriteContentRespInner,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct WriteContentRespInner {
     pub sha: String,
     pub path: String,
     pub url: String,

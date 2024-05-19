@@ -55,6 +55,7 @@ impl From<diesel::result::Error> for QueryGithubRecordError {
     }
 }
 
+#[cfg(test)]
 mod github_record_test {
 
     use crate::database_pool;

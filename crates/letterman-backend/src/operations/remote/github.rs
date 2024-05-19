@@ -1,7 +1,9 @@
-use std::{cell::RefCell, collections::HashMap, string::FromUtf8Error, time::Duration};
+use std::{collections::HashMap, string::FromUtf8Error, time::Duration};
 
+use async_trait::async_trait;
 use base64::Engine;
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
+
 use markdown::{mdast::Node, Constructs};
 use r2d2::Pool;
 use reqwest::header::{self, HeaderValue};
@@ -15,9 +17,9 @@ use crate::{
             CreateContentParam, GithubRecord, InsertableGithubRecord, QueryGithubRecordError,
             UpdateContentParam, WriteContentResp,
         },
-        posts::{InsertableBasePost, InsertablePostContent, Post},
+        posts::Post,
     },
-    utils::Snowflake,
+    utils::{Snowflake, TimeUtil},
 };
 
 use super::{
@@ -32,12 +34,13 @@ pub struct GithubSyncer {
     path: Option<String>,
     repository: Option<String>,
     client: reqwest::Client,
-    ctx: RefCell<Context>,
+    ctx: Context,
 }
 
+#[async_trait]
 impl SyncAction for GithubSyncer {
     async fn push_create(
-        &self,
+        &mut self,
         post: &Post,
         pool: Pool<ConnectionManager<MysqlConnection>>,
     ) -> Result<(), super::SyncError> {
@@ -51,18 +54,20 @@ impl SyncAction for GithubSyncer {
         let path = self.path.clone().unwrap();
         let url = format!("https://api.github.com/repos/{repo}/contents/{path}",);
         let param = CreateContentParam::new(&format!("create {}", path), post.get_content());
-        let resp = self.client.post(url).json(&param).send().await?;
+        let resp = self.client.put(url).json(&param).send().await?;
         if !resp.status().is_success() {
-            return Err(GithubSyncError::Request.into());
+            println!("{:#?}", resp);
+            println!("{:#?}", resp.text().await?);
+            return Err(SyncError::RemoteServer);
         }
         let resp = resp.json::<WriteContentResp>().await?;
         GithubRecordCreator(InsertableGithubRecord::new(
             post.get_post_id(),
             post.get_version(),
-            resp.path,
-            resp.sha,
+            resp.content.path,
+            resp.content.sha,
             repo.clone(),
-            resp.url,
+            resp.content.url,
         ))
         .execute(pool.clone())
         .await?;
@@ -70,7 +75,7 @@ impl SyncAction for GithubSyncer {
     }
 
     async fn push_update(
-        &self,
+        &mut self,
         post: &Post,
         pool: Pool<ConnectionManager<MysqlConnection>>,
     ) -> Result<(), super::SyncError> {
@@ -88,7 +93,7 @@ impl SyncAction for GithubSyncer {
             post.get_content(),
             record.sha(),
         );
-        let resp = self.client.post(url).json(&req).send().await?;
+        let resp = self.client.put(url).json(&req).send().await?;
         if !resp.status().is_success() {
             return Err(super::SyncError::RemoteServer);
         }
@@ -96,10 +101,10 @@ impl SyncAction for GithubSyncer {
         GithubRecordCreator(InsertableGithubRecord::new(
             post.get_post_id(),
             post.get_version() + 1,
-            resp.path,
-            resp.sha,
+            resp.content.path,
+            resp.content.sha,
             record.repository().to_string(),
-            resp.url,
+            resp.content.url,
         ))
         .execute(pool.clone())
         .await?;
@@ -107,10 +112,10 @@ impl SyncAction for GithubSyncer {
     }
 
     async fn pull(
-        &self,
+        &mut self,
         post: &Post,
         pool: Pool<ConnectionManager<MysqlConnection>>,
-    ) -> Result<Option<(InsertableBasePost, InsertablePostContent)>, super::SyncError> {
+    ) -> Result<Option<Post>, super::SyncError> {
         let content = self
             .get_github_post(post.get_post_id(), pool.clone())
             .await?;
@@ -119,47 +124,42 @@ impl SyncAction for GithubSyncer {
         }
 
         let res = extract(&content.unwrap().content)?;
-
-        let base = InsertableBasePost {
-            id: Snowflake::next_id(),
-            post_id: post.get_post_id(),
-            version: post.get_version() + 1,
-            prev_version: post.get_version(),
-            title: if let Some(title) = res.title {
+        let post = Post::new(
+            Snowflake::next_id(),
+            post.get_post_id(),
+            if let Some(title) = res.title {
                 title
             } else {
                 post.title().to_string()
             },
-            metadata: serde_json::to_string(&res.metadata)?,
-        };
-        let content = InsertablePostContent {
-            id: Snowflake::next_id(),
-            post_id: post.get_post_id(),
-            content: res.content,
-            version: post.get_version() + 1,
-            prev_version: post.get_version(),
-        };
-        Ok(Some((base, content)))
+            serde_json::to_value(&res.metadata)?,
+            res.content,
+            post.get_version() + 1,
+            post.get_version(),
+            TimeUtil::now(),
+            TimeUtil::now(),
+        );
+
+        Ok(Some(post))
     }
 
     async fn check_changed(
-        &self,
-        post_id: i64,
+        &mut self,
+        post: &Post,
         pool: Pool<ConnectionManager<MysqlConnection>>,
     ) -> Result<(bool, bool, bool), super::SyncError> {
-        let records = self.get_github_sync_records(post_id, pool.clone()).await?;
-        let post = self.get_github_post(post_id, pool.clone()).await?;
+        let records = self
+            .get_github_sync_records(post.get_post_id(), pool.clone())
+            .await?;
         if records.is_empty() {
             return Ok((false, false, true));
         }
-        let post = post.unwrap();
-        if records.first().unwrap().sha() == post.sha {
-            Ok((true, false, false))
-        } else if records.iter().map(|r| r.sha()).any(|sha| sha == post.sha) {
-            Ok((false, true, false))
-        } else {
-            Ok((false, false, false))
+        let first = records.first().unwrap();
+        if post.get_version() > first.version() {
+            return Ok((false, true, false));
         }
+
+        Ok((false, false, false))
     }
 }
 
@@ -167,13 +167,13 @@ impl GithubSyncer {
     pub fn new(
         path: Option<String>,
         repository: Option<String>,
-        token: &str,
     ) -> Result<GithubSyncer, GithubSyncError> {
         let mut header_map = header::HeaderMap::new();
         header_map.insert(
             header::USER_AGENT,
             header::HeaderValue::from_static("letterman"),
         );
+        let token = std::env::var("GITHUB_TOKEN").unwrap();
         header_map.insert(
             header::AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
@@ -190,20 +190,19 @@ impl GithubSyncer {
             path,
             repository,
             client,
-            ctx: RefCell::new(Context::new()),
+            ctx: Context::new(),
         })
     }
 
     async fn get_github_sync_records(
-        &self,
+        &mut self,
         post_id: i64,
         pool: Pool<ConnectionManager<MysqlConnection>>,
     ) -> Result<Vec<GithubRecord>, DbActionError<QueryGithubRecordError>> {
         // 定义一个局部作用域，以限制可变借用的范围
         let records: Option<Vec<GithubRecord>> = {
             // 仅当需要插入记录时，才进行可变借用
-            let ctx = self.ctx.borrow();
-            let records: Option<&Vec<GithubRecord>> = ctx.get(GITHUB_SYNC_RECORDS_KEY);
+            let records: Option<&Vec<GithubRecord>> = self.ctx.get(GITHUB_SYNC_RECORDS_KEY);
             if records.is_none() {
                 None
             } else {
@@ -215,23 +214,21 @@ impl GithubSyncer {
                 let new_records = GithubRecordQueryerByPostId(post_id)
                     .execute(pool.clone())
                     .await?;
-                let mut ctx = self.ctx.borrow_mut();
-                ctx.set(GITHUB_SYNC_RECORDS_KEY.to_string(), new_records);
+                self.ctx
+                    .set(GITHUB_SYNC_RECORDS_KEY.to_string(), new_records);
             }
         }
-        let ctx = self.ctx.borrow();
-        let records: &Vec<GithubRecord> = ctx.get(GITHUB_SYNC_RECORDS_KEY).unwrap();
+        let records: &Vec<GithubRecord> = self.ctx.get(GITHUB_SYNC_RECORDS_KEY).unwrap();
         Ok(records.clone())
     }
 
     async fn get_github_post(
-        &self,
+        &mut self,
         post_id: i64,
         pool: Pool<ConnectionManager<MysqlConnection>>,
     ) -> Result<Option<GithubArticleRecord>, SyncError> {
         {
-            let ctx = self.ctx.borrow();
-            let post: Option<&GithubArticleRecord> = ctx.get(GITHUB_SYNC_POST_KEY);
+            let post: Option<&GithubArticleRecord> = self.ctx.get(GITHUB_SYNC_POST_KEY);
             if let Some(post) = post {
                 return Ok(Some(post.clone()));
             }
@@ -254,13 +251,12 @@ impl GithubSyncer {
         let content = resp.json::<GithubArticleRecord>().await?.decode_content()?;
 
         {
-            let mut ctx = self.ctx.borrow_mut();
-            ctx.set(GITHUB_SYNC_POST_KEY.to_string(), content);
+            self.ctx.set(GITHUB_SYNC_POST_KEY.to_string(), content);
         }
 
-        let ctx = self.ctx.borrow();
         Ok(Some(
-            ctx.get::<GithubArticleRecord>(GITHUB_SYNC_POST_KEY)
+            self.ctx
+                .get::<GithubArticleRecord>(GITHUB_SYNC_POST_KEY)
                 .unwrap()
                 .clone(),
         ))
@@ -282,7 +278,7 @@ impl GithubArticleRecord {
         match &*self.encoding {
             "base64" => {
                 let content = self.content.replace('\n', "");
-                let content = base64::prelude::BASE64_STANDARD_NO_PAD.decode(content)?;
+                let content = base64::prelude::BASE64_STANDARD.decode(content)?;
                 let content = String::from_utf8(content)?;
                 Ok(GithubArticleRecord {
                     name: self.name,
@@ -399,8 +395,8 @@ impl From<FromUtf8Error> for DecodeError {
 }
 
 impl From<DecodeError> for SyncError {
-    fn from(_: DecodeError) -> Self {
-        todo!()
+    fn from(_value: DecodeError) -> Self {
+        SyncError::Decode
     }
 }
 
@@ -511,14 +507,27 @@ impl From<serde_json::Error> for SyncError {
     }
 }
 
+#[cfg(test)]
 mod github_sync_test {
     use std::env;
 
-    use crate::types::github_record::GithubArticleRecord;
+    use crate::{
+        database_pool, operations::remote::synchronize, types::github_record::GithubArticleRecord,
+    };
 
     use super::*;
-    use base64::prelude::*;
-    use markdown::mdast::{Node, Yaml};
+
+    #[actix_web::test]
+    async fn github_syncer_test() -> Result<(), Box<dyn std::error::Error>> {
+        dotenv::dotenv().ok();
+        let pool = database_pool()?;
+        let mut syncer = GithubSyncer::new(
+            Some("README.md".to_string()),
+            Some("ZephyrZenn/test-repo".to_string()),
+        )?;
+        synchronize(&mut syncer, 7183026894152011778, pool.clone()).await?;
+        Ok(())
+    }
 
     #[actix_web::test]
     async fn get_content_test() {

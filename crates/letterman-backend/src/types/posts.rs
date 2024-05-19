@@ -85,9 +85,28 @@ impl Post {
     pub fn get_version(&self) -> i32 {
         self.version
     }
-    
+
     pub fn title(&self) -> &str {
         &self.title
+    }
+
+    pub fn to_po(self) -> (InsertableBasePost, InsertablePostContent) {
+        let base = InsertableBasePost {
+            id: Snowflake::next_id(),
+            post_id: self.post_id,
+            title: self.title,
+            metadata: serde_json::to_string(&self.metadata).unwrap(),
+            version: self.version,
+            prev_version: self.pre_version,
+        };
+        let content = InsertablePostContent {
+            id: Snowflake::next_id(),
+            post_id: self.post_id,
+            version: self.version,
+            content: self.content,
+            prev_version: self.pre_version,
+        };
+        (base, content)
     }
 }
 

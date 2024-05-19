@@ -35,6 +35,19 @@ impl DbAction for PostCreator {
     }
 }
 
+pub struct PostDirectCreator(pub Post);
+
+impl DbAction for PostDirectCreator {
+    type Item = ();
+
+    type Error = CreatePostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        let (base, content) = self.0.to_po();
+        insert_post(conn, base, content).map_err(CreatePostError::from)
+    }
+}
+
 pub struct PostPageQueryer(pub PostPageReq);
 
 impl DbAction for PostPageQueryer {

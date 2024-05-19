@@ -1,25 +1,34 @@
-use std::{any::Any, collections::HashMap};
+use std::{
+    any::Any,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
-use crate::{traits::DbActionError, types::posts::QueryPostError};
+use crate::{
+    traits::DbActionError,
+    types::posts::{CreatePostError, QueryPostError},
+};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Context {
-    data: HashMap<String, Box<dyn Any>>,
+    data: Arc<Mutex<HashMap<String, Box<dyn Any + Send>>>>,
 }
 
 impl Context {
     pub fn new() -> Context {
         Context {
-            data: HashMap::new(),
+            data: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    pub fn get<T: 'static + Any>(&self, key: &str) -> Option<&T> {
-        self.data.get(key)?.as_ref().downcast_ref()
+    pub fn get<T: 'static + Any + Clone>(&self, key: &str) -> Option<T> {
+        let data = self.data.lock().unwrap();
+        data.get(key)?.as_ref().downcast_ref().cloned()
     }
 
-    pub fn set<T: 'static + Any>(&mut self, key: String, value: T) {
-        self.data.insert(key, Box::new(value));
+    pub fn set<T: 'static + Any + Send>(&mut self, key: String, value: T) {
+        let mut data = self.data.lock().unwrap();
+        data.insert(key, Box::new(value));
     }
 }
 
@@ -62,6 +71,24 @@ impl From<QueryPostError> for SyncError {
         match value {
             QueryPostError::Database => SyncError::Database,
             QueryPostError::NotFound => SyncError::NotFound,
+        }
+    }
+}
+
+impl From<DbActionError<CreatePostError>> for SyncError {
+    fn from(value: DbActionError<CreatePostError>) -> Self {
+        match value {
+            DbActionError::Error(e) => e.into(),
+            DbActionError::Pool(_) => SyncError::Database,
+            DbActionError::Canceled => SyncError::Database,
+        }
+    }
+}
+
+impl From<CreatePostError> for SyncError {
+    fn from(item: CreatePostError) -> Self {
+        match item {
+            CreatePostError::Database => SyncError::Database,
         }
     }
 }

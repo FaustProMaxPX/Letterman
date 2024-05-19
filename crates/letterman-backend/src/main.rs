@@ -32,15 +32,6 @@ pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<d
     Ok(pool)
 }
 
-fn init_config() -> Result<AppConfig, Box<dyn Error>> {
-    let github_token = env::var("GITHUB_TOKEN").ok();
-    let repository = env::var("GITHUB_REPOSITORY").ok();
-    Ok(AppConfig {
-        github_token,
-        github_repository: repository,
-    })
-}
-
 fn init_logger() {
     std::env::set_var("RUST_LOG", "info");
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -51,34 +42,16 @@ struct State {
     pub pool: Pool<ConnectionManager<MysqlConnection>>,
 }
 
-#[derive(Clone)]
-struct AppConfig {
-    github_repository: Option<String>,
-    github_token: Option<String>,
-}
-
-impl AppConfig {
-    pub fn get_github_token(&self) -> Option<String> {
-        self.github_token.clone()
-    }
-
-    pub fn get_github_repository(&self) -> Option<String> {
-        self.github_repository.clone()
-    }
-}
-
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv().ok();
     init_logger();
-    let config = init_config()?;
     let pool = database_pool()?;
     HttpServer::new(move || {
         let state = State { pool: pool.clone() };
 
         App::new()
             .app_data(Data::new(state))
-            .app_data(Data::new(config.clone()))
             .wrap(Logger::default())
             .wrap(
                 actix_cors::Cors::default()
