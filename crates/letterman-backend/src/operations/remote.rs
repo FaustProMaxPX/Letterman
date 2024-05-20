@@ -2,14 +2,11 @@ use async_trait::async_trait;
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
 
-use crate::{
-    traits::DbAction,
-    types::posts::Post,
-};
+use crate::{traits::DbAction, types::posts::Post};
 
 use self::types::SyncError;
 
-use super::posts::LatestPostQueryerByPostId;
+use super::posts::{LatestPostQueryerByPostId, PostDirectCreator};
 
 pub mod github;
 pub mod types;
@@ -69,4 +66,36 @@ async fn synchronize(
     } else {
         Err(SyncError::Ambiguous)
     }
+}
+
+/// pull article from outer platform as the latest version
+async fn pull(
+    syncer: &mut impl SyncAction,
+    post_id: i64,
+    pool: Pool<ConnectionManager<MysqlConnection>>,
+) -> Result<(), SyncError> {
+    let post = LatestPostQueryerByPostId(post_id)
+        .execute(pool.clone())
+        .await?;
+    let remote_post = syncer.pull(&post, pool.clone()).await?;
+    if let Some(post) = remote_post {
+        PostDirectCreator(post).execute(pool.clone()).await?;
+        Ok(())
+    } else {
+        Err(SyncError::Other(
+            "failed to pull article from remote".to_string(),
+        ))
+    }
+}
+
+/// push local newest article to outer platform
+async fn force_push(
+    syncer: &mut impl SyncAction,
+    post_id: i64,
+    pool: Pool<ConnectionManager<MysqlConnection>>,
+) -> Result<(), SyncError> {
+    let post = LatestPostQueryerByPostId(post_id)
+        .execute(pool.clone())
+        .await?;
+    syncer.push_update(&post, pool.clone()).await
 }
