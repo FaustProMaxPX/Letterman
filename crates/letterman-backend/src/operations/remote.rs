@@ -8,6 +8,7 @@ use self::types::SyncError;
 
 use super::posts::{LatestPostQueryerByPostId, PostDirectCreator};
 
+pub mod factory;
 pub mod github;
 pub mod types;
 
@@ -47,8 +48,8 @@ pub trait SyncAction {
 /// this function will just push post if there is any change in the article stored in the database.
 /// It will not pull article from outer platform although there may be some changes.
 /// if you need to pull article from outer platform, use `pull` to force that.
-async fn synchronize(
-    syncer: &mut impl SyncAction,
+pub(crate) async fn synchronize(
+    mut syncer: Box<dyn SyncAction>,
     post_id: i64,
     pool: Pool<ConnectionManager<MysqlConnection>>,
 ) -> Result<(), SyncError> {
@@ -69,8 +70,8 @@ async fn synchronize(
 }
 
 /// pull article from outer platform as the latest version
-async fn pull(
-    syncer: &mut impl SyncAction,
+pub(crate) async fn force_pull(
+    mut syncer: Box<dyn SyncAction>,
     post_id: i64,
     pool: Pool<ConnectionManager<MysqlConnection>>,
 ) -> Result<(), SyncError> {
@@ -89,8 +90,8 @@ async fn pull(
 }
 
 /// push local newest article to outer platform
-async fn force_push(
-    syncer: &mut impl SyncAction,
+pub(crate) async fn force_push(
+    mut syncer: Box<dyn SyncAction>,
     post_id: i64,
     pool: Pool<ConnectionManager<MysqlConnection>>,
 ) -> Result<(), SyncError> {

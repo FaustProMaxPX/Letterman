@@ -5,6 +5,9 @@ use actix_web::{http::StatusCode, ResponseError};
 use crate::operations::posts::{
     PostCreator, PostDeleter, PostPageQueryer, PostQueryer, PostUpdater,
 };
+use crate::operations::remote;
+use crate::operations::remote::factory::SyncerFactory;
+use crate::operations::remote::types::{SyncError, SyncReq};
 use crate::traits::{DbAction, DbActionError, Validate};
 use crate::types::posts::{
     CreatePostError, DeletePostError, PostPageReq, QueryPostError, UpdatePostError, UpdatePostReq,
@@ -23,98 +26,17 @@ pub enum PostResponseError {
         msg: &'static str,
     },
     #[display(fmt = "{msg}")]
-    UserError {
-        msg: String,
-    },
+    UserError { msg: String },
+    #[display(fmt = "Database error")]
+    Database,
+    #[display(fmt = "Pool Error: {}", _0)]
     Pool(r2d2::Error),
+    #[display(fmt = "canceled")]
     Canceled,
+    #[display(fmt = "not found")]
+    NotFound,
+    #[display(fmt = "unknown error: {}", _0)]
     Other(String),
-}
-
-impl ResponseError for PostResponseError {
-    fn error_response(&self) -> actix_web::HttpResponse {
-        let body =
-            serde_json::to_string(&CommonResult::<()>::fail_with_msg(&self.to_string())).unwrap();
-        actix_web::HttpResponse::build(self.status_code())
-            .insert_header(actix_web::http::header::ContentType::json())
-            .body(body)
-    }
-
-    fn status_code(&self) -> actix_web::http::StatusCode {
-        match *self {
-            Self::ValidationError { .. } => StatusCode::BAD_REQUEST,
-            Self::UserError { .. } => StatusCode::OK,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-}
-
-impl From<PageValidationError> for PostResponseError {
-    fn from(item: PageValidationError) -> Self {
-        PostResponseError::ValidationError {
-            field: item.field,
-            msg: item.msg,
-        }
-    }
-}
-
-impl From<DbActionError<CreatePostError>> for PostResponseError {
-    fn from(item: DbActionError<CreatePostError>) -> Self {
-        match item {
-            DbActionError::Error(e) => PostResponseError::Other(e.to_string()),
-            DbActionError::Pool(e) => PostResponseError::Pool(e),
-            DbActionError::Canceled => PostResponseError::Canceled,
-        }
-    }
-}
-
-impl From<DbActionError<QueryPostError>> for PostResponseError {
-    fn from(value: DbActionError<QueryPostError>) -> Self {
-        match value {
-            DbActionError::Error(e) => match e {
-                QueryPostError::NotFound => PostResponseError::UserError { msg: e.to_string() },
-                _ => PostResponseError::Other(e.to_string()),
-            },
-            DbActionError::Pool(e) => PostResponseError::Pool(e),
-            DbActionError::Canceled => PostResponseError::Canceled,
-        }
-    }
-}
-
-impl From<DbActionError<UpdatePostError>> for PostResponseError {
-    fn from(item: DbActionError<UpdatePostError>) -> Self {
-        match item {
-            DbActionError::Error(e) => match e {
-                UpdatePostError::Database => PostResponseError::Other(e.to_string()),
-                UpdatePostError::NotFound => PostResponseError::UserError { msg: e.to_string() },
-                UpdatePostError::NotLatestVersion => {
-                    PostResponseError::UserError { msg: e.to_string() }
-                }
-            },
-            DbActionError::Pool(e) => PostResponseError::Pool(e),
-            DbActionError::Canceled => PostResponseError::Canceled,
-        }
-    }
-}
-
-impl From<actix_web::error::Error> for PostResponseError {
-    fn from(err: actix_web::error::Error) -> Self {
-        PostResponseError::Other(err.to_string())
-    }
-}
-
-impl From<DbActionError<DeletePostError>> for PostResponseError {
-    fn from(item: DbActionError<DeletePostError>) -> Self {
-        match item {
-            DbActionError::Error(e) => match e {
-                DeletePostError::Database => PostResponseError::Other(e.to_string()),
-                DeletePostError::NotFound => PostResponseError::UserError { msg: e.to_string() },
-                DeletePostError::SyncError(e) => PostResponseError::UserError { msg: e },
-            },
-            DbActionError::Pool(e) => PostResponseError::Pool(e),
-            DbActionError::Canceled => PostResponseError::Canceled,
-        }
-    }
 }
 
 pub(crate) async fn create(
@@ -167,4 +89,142 @@ pub(crate) async fn delete_post(
     let id = id.into_inner();
     PostDeleter(id).execute(state.pool.clone()).await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
+pub(crate) async fn synchronize(
+    state: Data<State>,
+    post_id: Path<i64>,
+    req: Json<SyncReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let post_id = post_id.into_inner();
+    let syncer = SyncerFactory::create(req.into_inner())?;
+    remote::synchronize(syncer, post_id, state.pool.clone()).await?;
+    Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
+pub(crate) async fn force_pull(
+    state: Data<State>,
+    post_id: Path<i64>,
+    req: Json<SyncReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let post_id = post_id.into_inner();
+    let syncer = SyncerFactory::create(req.into_inner())?;
+    remote::force_pull(syncer, post_id, state.pool.clone()).await?;
+    Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
+pub(crate) async fn force_push(
+    state: Data<State>,
+    post_id: Path<i64>,
+    req: Json<SyncReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let post_id = post_id.into_inner();
+    let syncer = SyncerFactory::create(req.into_inner())?;
+    remote::force_push(syncer, post_id, state.pool.clone()).await?;
+    Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
+impl ResponseError for PostResponseError {
+    fn error_response(&self) -> actix_web::HttpResponse {
+        let body =
+            serde_json::to_string(&CommonResult::<()>::fail_with_msg(&self.to_string())).unwrap();
+        actix_web::HttpResponse::build(self.status_code())
+            .insert_header(actix_web::http::header::ContentType::json())
+            .body(body)
+    }
+
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        match *self {
+            Self::ValidationError { .. } => StatusCode::BAD_REQUEST,
+            Self::UserError { .. } => StatusCode::OK,
+            Self::NotFound => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl From<PageValidationError> for PostResponseError {
+    fn from(item: PageValidationError) -> Self {
+        PostResponseError::ValidationError {
+            field: item.field,
+            msg: item.msg,
+        }
+    }
+}
+
+impl From<DbActionError<CreatePostError>> for PostResponseError {
+    fn from(item: DbActionError<CreatePostError>) -> Self {
+        match item {
+            DbActionError::Error(e) => PostResponseError::Other(e.to_string()),
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<DbActionError<QueryPostError>> for PostResponseError {
+    fn from(value: DbActionError<QueryPostError>) -> Self {
+        match value {
+            DbActionError::Error(e) => match e {
+                QueryPostError::NotFound => PostResponseError::NotFound,
+                _ => PostResponseError::Other(e.to_string()),
+            },
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<DbActionError<UpdatePostError>> for PostResponseError {
+    fn from(item: DbActionError<UpdatePostError>) -> Self {
+        match item {
+            DbActionError::Error(e) => match e {
+                UpdatePostError::Database => PostResponseError::Database,
+                UpdatePostError::NotFound => PostResponseError::NotFound,
+                UpdatePostError::NotLatestVersion => {
+                    PostResponseError::UserError { msg: e.to_string() }
+                }
+            },
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<actix_web::error::Error> for PostResponseError {
+    fn from(err: actix_web::error::Error) -> Self {
+        PostResponseError::Other(err.to_string())
+    }
+}
+
+impl From<DbActionError<DeletePostError>> for PostResponseError {
+    fn from(item: DbActionError<DeletePostError>) -> Self {
+        match item {
+            DbActionError::Error(e) => match e {
+                DeletePostError::Database => PostResponseError::Database,
+                DeletePostError::NotFound => PostResponseError::NotFound,
+                DeletePostError::SyncError(e) => PostResponseError::Other(e),
+            },
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<SyncError> for PostResponseError {
+    fn from(item: SyncError) -> Self {
+        match item {
+            SyncError::Database => PostResponseError::Database,
+            SyncError::NotFound => PostResponseError::NotFound,
+            SyncError::Ambiguous => PostResponseError::UserError {
+                msg: item.to_string(),
+            },
+            SyncError::Client => PostResponseError::Other(item.to_string()),
+            SyncError::RemoteServer => PostResponseError::Other(item.to_string()),
+            SyncError::UserError(e) => PostResponseError::UserError { msg: e },
+            SyncError::NetworkError(e) => PostResponseError::Other(e),
+            SyncError::Decode => PostResponseError::Other(item.to_string()),
+            SyncError::Other(e) => PostResponseError::Other(e),
+        }
+    }
 }

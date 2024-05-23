@@ -17,7 +17,7 @@ use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
 use routes::{
     common::ping,
-    posts::{create, delete_post, get_list, get_post, update},
+    posts::{create, delete_post, force_pull, force_push, get_list, get_post, synchronize, update},
 };
 
 #[macro_use]
@@ -71,6 +71,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         resource("")
                             .route(post().to(create))
                             .route(put().to(update)),
+                    )
+                    .service(
+                        scope("sync/{post_id}")
+                            .service(resource("synchronize").route(put().to(synchronize)))
+                            .service(resource("push").route(put().to(force_push)))
+                            .service(resource("pull").route(put().to(force_pull))),
                     ),
             )
             .service(ping)

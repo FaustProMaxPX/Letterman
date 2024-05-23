@@ -67,7 +67,7 @@ impl SyncAction for GithubSyncer {
             resp.content.path,
             resp.content.sha,
             repo.clone(),
-            resp.content.url,
+            resp.content.download_url,
         ))
         .execute(pool.clone())
         .await?;
@@ -82,7 +82,7 @@ impl SyncAction for GithubSyncer {
         let records = self
             .get_github_sync_records(post.get_post_id(), pool.clone())
             .await?;
-        let record = records.first().unwrap();
+        let record = records.unwrap().first().unwrap().clone();
         let url = format!(
             "https://api.github.com/repos/{repo}/contents/{path}",
             repo = record.repository(),
@@ -104,7 +104,7 @@ impl SyncAction for GithubSyncer {
             resp.content.path,
             resp.content.sha,
             record.repository().to_string(),
-            resp.content.url,
+            resp.content.download_url,
         ))
         .execute(pool.clone())
         .await?;
@@ -151,15 +151,16 @@ impl SyncAction for GithubSyncer {
         let records = self
             .get_github_sync_records(post.get_post_id(), pool.clone())
             .await?;
-        if records.is_empty() {
+        if records.is_none() {
             return Ok((false, false, true));
         }
+        let records = records.unwrap();
         let first = records.first().unwrap();
-        if post.get_version() > first.version() {
-            return Ok((false, true, false));
+        match post.get_version().cmp(&first.version()) {
+            std::cmp::Ordering::Greater => Ok((false, true, false)),
+            std::cmp::Ordering::Equal => Ok((true, false, false)),
+            std::cmp::Ordering::Less => Ok((false, false, false)),
         }
-
-        Ok((false, false, false))
     }
 }
 
@@ -198,28 +199,26 @@ impl GithubSyncer {
         &mut self,
         post_id: i64,
         pool: Pool<ConnectionManager<MysqlConnection>>,
-    ) -> Result<Vec<GithubRecord>, DbActionError<QueryGithubRecordError>> {
+    ) -> Result<Option<Vec<GithubRecord>>, DbActionError<QueryGithubRecordError>> {
         // 定义一个局部作用域，以限制可变借用的范围
         let records: Option<Vec<GithubRecord>> = {
             // 仅当需要插入记录时，才进行可变借用
-            let records: Option<&Vec<GithubRecord>> = self.ctx.get(GITHUB_SYNC_RECORDS_KEY);
-            if records.is_none() {
-                None
-            } else {
-                Some(records.unwrap_or(&vec![]).clone())
-            }
+            let records: Option<Vec<GithubRecord>> = self.ctx.get(GITHUB_SYNC_RECORDS_KEY);
+            records
         };
         {
             if records.is_none() {
                 let new_records = GithubRecordQueryerByPostId(post_id)
                     .execute(pool.clone())
                     .await?;
-                self.ctx
-                    .set(GITHUB_SYNC_RECORDS_KEY.to_string(), new_records);
+                if !new_records.is_empty() {
+                    self.ctx
+                        .set(GITHUB_SYNC_RECORDS_KEY.to_string(), new_records);
+                }
             }
         }
-        let records: &Vec<GithubRecord> = self.ctx.get(GITHUB_SYNC_RECORDS_KEY).unwrap();
-        Ok(records.clone())
+        let records: Option<Vec<GithubRecord>> = self.ctx.get(GITHUB_SYNC_RECORDS_KEY);
+        Ok(records)
     }
 
     async fn get_github_post(
@@ -235,9 +234,10 @@ impl GithubSyncer {
         }
 
         let records = self.get_github_sync_records(post_id, pool.clone()).await?;
-        if records.is_empty() {
+        if records.is_none() {
             return Ok(None);
         }
+        let records = records.unwrap();
         let record = records.first().unwrap();
         let url = format!(
             "https://api.github.com/repos/{repo}/contents/{path}",
@@ -521,11 +521,11 @@ mod github_sync_test {
     async fn github_syncer_test() -> Result<(), Box<dyn std::error::Error>> {
         dotenv::dotenv().ok();
         let pool = database_pool()?;
-        let mut syncer = GithubSyncer::new(
+        let syncer = GithubSyncer::new(
             Some("README.md".to_string()),
             Some("ZephyrZenn/test-repo".to_string()),
         )?;
-        synchronize(&mut syncer, 7183026894152011778, pool.clone()).await?;
+        synchronize(Box::new(syncer), 7183026894152011778, pool.clone()).await?;
         Ok(())
     }
 
@@ -567,5 +567,24 @@ mod github_sync_test {
         .unwrap();
 
         println!("{:#?}", ast);
+    }
+
+    #[actix_web::test]
+    async fn context_test() -> Result<(), Box<dyn std::error::Error>> {
+        dotenv::dotenv().ok();
+        let pool = database_pool().unwrap();
+        {
+            let mut ctx = Context::new();
+            let new_records: Vec<GithubRecord> = GithubRecordQueryerByPostId(7191634464299159554)
+                .execute(pool.clone())
+                .await?;
+            if !new_records.is_empty() {
+                ctx.set(GITHUB_SYNC_RECORDS_KEY.to_string(), new_records);
+            }
+            let records: Option<Vec<GithubRecord>> = ctx.get(GITHUB_SYNC_RECORDS_KEY);
+            assert!(records.is_some())
+        }
+
+        Ok(())
     }
 }

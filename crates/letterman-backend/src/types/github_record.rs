@@ -168,6 +168,7 @@ pub struct WriteContentRespInner {
     pub sha: String,
     pub path: String,
     pub url: String,
+    pub download_url: String
 }
 
 #[derive(Debug, Clone, Display)]
