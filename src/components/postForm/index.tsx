@@ -1,3 +1,4 @@
+import CreateIcon from "@mui/icons-material/Create";
 import {
   Box,
   Button,
@@ -11,24 +12,21 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Post } from "../../types";
 import React, { useEffect, useRef, useState } from "react";
-import { createPost, getPost, updatePost } from "../../services/postsService";
+import "react-quill/dist/quill.snow.css";
 import { useNavigate, useParams } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
-import CreateIcon from "@mui/icons-material/Create";
+import { createPost, getPost, updatePost } from "../../services/postsService";
 import { formatErrorMessage } from "../../services/utils/transform-response";
-import "react-quill/dist/quill.snow.css";
+import { Post } from "../../types";
 
-import { formatDate } from "../../utils/time-util";
+import "../../css/bytemd.css";
+import { FormContext, useForm } from "../../hooks/useForm";
 import { jsonToMap, mapToJson } from "../../utils/map-utils";
-import {
-  FormContext,
-  FormField,
-  MapField,
-  QuillField,
-  useForm,
-} from "../common/BasicForm";
+import { formatDate } from "../../utils/time-util";
+import { BytemdField } from "../common/form/BytemdField";
+import { FormField } from "../common/form/FormField";
+import { MapField } from "../common/form/MapField";
 
 export interface PostFormProps {
   post?: Post;
@@ -155,11 +153,7 @@ export const PostForm = () => {
                 elevation={3}
               >
                 <FormField id="title" label="标题" />
-                <QuillField
-                  id="content"
-                  theme="snow"
-                  style={{ marginTop: "10px", height: "100%" }}
-                />
+                <BytemdField id="content" />
               </Paper>
             </Grid>
             <Grid item xs={12} md={4} lg={3}>
