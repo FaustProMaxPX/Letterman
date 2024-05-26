@@ -53,10 +53,7 @@ impl SyncAction for GithubSyncer {
         let repo = self.repository.clone().unwrap();
         let path = self.path.clone().unwrap();
         let url = format!("https://api.github.com/repos/{repo}/contents/{path}");
-        let param = CreateContentParam::new(
-            &format!("create {}", path),
-            &package(post.content(), post.metadata())?,
-        );
+        let param = CreateContentParam::new(&format!("create {}", path), &package(post)?);
         let resp = self.client.put(url).json(&param).send().await?;
         if !resp.status().is_success() {
             println!("{:#?}", resp);
@@ -93,7 +90,7 @@ impl SyncAction for GithubSyncer {
         );
         let req = UpdateContentParam::new(
             &format!("update {}", record.path()),
-            &package(post.content(), post.metadata())?,
+            &package(post)?,
             record.sha(),
         );
         let resp = self.client.put(url).json(&req).send().await?;
@@ -302,9 +299,11 @@ struct ExtractResult {
 }
 
 /// package markdown content with metadata
-fn package(content: &str, metadata: &HashMap<String, String>) -> Result<String, serde_yaml::Error> {
-    let frontmatter = serde_yaml::to_string(metadata)?;
-    let content = format!("---\n{}\n---\n{}", frontmatter, content);
+fn package(post: &Post) -> Result<String, serde_yaml::Error> {
+    let mut metadata = post.metadata().clone();
+    metadata.insert("title".to_string(), post.title().to_string());
+    let frontmatter = serde_yaml::to_string(&metadata)?;
+    let content = format!("---\n{}\n---\n{}", frontmatter, post.content());
     Ok(content)
 }
 
