@@ -123,3 +123,9 @@ impl From<reqwest::Error> for SyncError {
         SyncError::Other(value.to_string())
     }
 }
+
+impl From<serde_yaml::Error> for SyncError {
+    fn from(item: serde_yaml::Error) -> Self {
+        SyncError::Other(item.to_string())
+    }
+}

@@ -1,4 +1,7 @@
-use std::fmt::{self, Formatter};
+use std::{
+    collections::HashMap,
+    fmt::{self, Formatter},
+};
 
 use crate::{
     routes::posts::PostResponseError,
@@ -11,7 +14,9 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{deserialize_from_string, serialize_as_string, PageValidationError};
+use super::{
+    deserialize_from_string, serialize_as_string, serialize_metadata, PageValidationError,
+};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -27,7 +32,8 @@ pub struct Post {
     )]
     post_id: i64,
     title: String,
-    metadata: Value,
+    #[serde(serialize_with = "serialize_metadata")]
+    metadata: HashMap<String, String>,
     content: String,
     version: i32,
     pre_version: i32,
@@ -40,7 +46,7 @@ impl Post {
         id: i64,
         post_id: i64,
         title: String,
-        metadata: Value,
+        metadata: HashMap<String, String>,
         content: String,
         version: i32,
         pre_version: i32,
@@ -74,15 +80,15 @@ impl Post {
         }
     }
 
-    pub fn get_post_id(&self) -> i64 {
+    pub fn post_id(&self) -> i64 {
         self.post_id
     }
 
-    pub fn get_content(&self) -> &str {
+    pub fn content(&self) -> &str {
         &self.content
     }
 
-    pub fn get_version(&self) -> i32 {
+    pub fn version(&self) -> i32 {
         self.version
     }
 
@@ -107,6 +113,10 @@ impl Post {
             prev_version: self.pre_version,
         };
         (base, content)
+    }
+
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
     }
 }
 

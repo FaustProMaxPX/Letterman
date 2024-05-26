@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::traits::Validate;
 
-pub mod posts;
 pub mod github_record;
+pub mod posts;
 
 #[derive(Serialize)]
 pub struct CommonResult<T> {
@@ -120,4 +122,12 @@ where
 {
     let s = String::deserialize(deserializer)?;
     s.parse::<i64>().map_err(serde::de::Error::custom)
+}
+
+fn serialize_metadata<S>(x: &HashMap<String, String>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let value = serde_json::to_value(x).map_err(serde::ser::Error::custom)?;
+    value.serialize(s)
 }
