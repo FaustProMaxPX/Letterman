@@ -13,14 +13,12 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useEffect, useRef, useState } from "react";
-import "react-quill/dist/quill.snow.css";
 import { useNavigate, useParams } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import { createPost, getPost, updatePost } from "../../services/postsService";
 import { formatErrorMessage } from "../../services/utils/transform-response";
 import { Post } from "../../types";
 
-import "../../css/bytemd.css";
 import { FormContext, useForm } from "../../hooks/useForm";
 import { jsonToMap, mapToJson } from "../../utils/map-utils";
 import { formatDate } from "../../utils/time-util";

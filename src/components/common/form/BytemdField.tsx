@@ -2,6 +2,8 @@ import gfm from "@bytemd/plugin-gfm";
 import { Editor } from "@bytemd/react";
 import { useContext } from "react";
 import { FormContext } from "../../../hooks/useForm";
+import "bytemd/dist/index.css";
+import "../../../css/bytemd.css"
 
 interface BytemdProps {
   id: string;
