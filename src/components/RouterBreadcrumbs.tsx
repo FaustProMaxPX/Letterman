@@ -12,6 +12,21 @@ const LinkRouter = (props: LinkRouterProps) => {
   return <Link {...props} component={RouterLink} />;
 };
 
+const getBreadcrumbName = (to: string) => {
+  const pathNames = Object.keys(BREADCRUMB_NAME_MAP);
+  for (const path of pathNames) {
+    if (path == to) {
+      return BREADCRUMB_NAME_MAP[path];
+    }
+    const match = path.match(/\/:([^/]+)/);
+    const segment = path.split("/:")[0];
+    if (match && to.startsWith(segment)) {
+      return BREADCRUMB_NAME_MAP[path];
+    }
+  }
+  return to;
+};
+
 export const RouterBreadcurmbs = () => {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
@@ -27,11 +42,11 @@ export const RouterBreadcurmbs = () => {
 
         return last ? (
           <Typography color="text.primary" key={to}>
-            {BREADCRUMB_NAME_MAP[to]}
+            {getBreadcrumbName(to)}
           </Typography>
         ) : (
           <LinkRouter underline="hover" color="inherit" to={to} key={to}>
-            {BREADCRUMB_NAME_MAP[to]}
+            {getBreadcrumbName(to)}
           </LinkRouter>
         );
       })}
