@@ -4,10 +4,12 @@ use async_trait::async_trait;
 use base64::Engine;
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 
+use log::error;
 use markdown::{mdast::Node, Constructs};
 use r2d2::Pool;
 use reqwest::header::{self, HeaderValue};
 use serde::Deserialize;
+use thiserror::Error;
 
 use crate::{
     operations::github_record::{GithubRecordCreator, GithubRecordQueryerByPostId},
@@ -56,8 +58,7 @@ impl SyncAction for GithubSyncer {
         let param = CreateContentParam::new(&format!("create {}", path), &package(post)?);
         let resp = self.client.put(url).json(&param).send().await?;
         if !resp.status().is_success() {
-            println!("{:#?}", resp);
-            println!("{:#?}", resp.text().await?);
+            error!("push create error: {}", resp.text().await?);
             return Err(SyncError::RemoteServer);
         }
         let resp = resp.json::<WriteContentResp>().await?;
@@ -95,7 +96,8 @@ impl SyncAction for GithubSyncer {
         );
         let resp = self.client.put(url).json(&req).send().await?;
         if !resp.status().is_success() {
-            return Err(super::SyncError::RemoteServer);
+            error!("push update error: {}", resp.text().await?);
+            return Err(SyncError::RemoteServer);
         }
         let resp: WriteContentResp = resp.json().await?;
         GithubRecordCreator(InsertableGithubRecord::new(
@@ -244,7 +246,8 @@ impl GithubSyncer {
         );
         let resp = self.client.get(url).send().await?;
         if !resp.status().is_success() {
-            return Err(super::SyncError::RemoteServer);
+            error!("get github article error: {}", resp.text().await?);
+            return Err(SyncError::RemoteServer);
         }
         let content = resp.json::<GithubArticleRecord>().await?.decode_content()?;
 
@@ -379,13 +382,13 @@ fn dfs(node: &markdown::mdast::Node) -> Vec<(String, String)> {
     ret
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Error)]
 pub enum DecodeError {
-    #[display(fmt = "decode failed, {}, {}", _0, _1)]
+    #[error("Decode Error: algorithm: {0}, error: {1}")]
     Decode(String, String),
-    #[display(fmt = "convert failed")]
+    #[error("Invalid content")]
     Convert,
-    #[display(fmt = "unsupported encoding: {}", _0)]
+    #[error("Unsupported encoding: {0}")]
     UnsupportedEncoding(String),
 }
 
@@ -407,27 +410,25 @@ impl From<DecodeError> for SyncError {
     }
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Error)]
 pub enum GithubSyncError {
-    #[display(fmt = "network error")]
+    #[error("Network Error")]
     NetworkError(String),
-    #[display(fmt = "unknown error: {}", _0)]
+    #[error("Unknown Error: {0}")]
     Other(String),
-    #[display(fmt = "user error: {}", _0)]
+    #[error("User Error: {0}")]
     UserError(String),
-    #[display(fmt = "database error")]
-    Database,
-    #[display(fmt = "failed to build client")]
-    Builder,
-    #[display(fmt = "request failed")]
-    Request,
-    #[display(fmt = "Please set GITHUB_TOKEN env if you want to use github synchronize")]
+    #[error("Please set GITHUB_TOKEN env if you want to use github synchronize")]
     NoToken,
-    #[display(fmt = "not found")]
+    #[error("Post not found")]
     NotFound,
 }
 
-impl std::error::Error for GithubSyncError {}
+impl From<reqwest::Error> for GithubSyncError {
+    fn from(item: reqwest::Error) -> Self {
+        GithubSyncError::NetworkError(item.to_string())
+    }
+}
 
 impl From<DbActionError<QueryGithubRecordError>> for SyncError {
     fn from(value: DbActionError<QueryGithubRecordError>) -> Self {
@@ -466,18 +467,9 @@ impl From<CreateGithubRecordError> for SyncError {
     }
 }
 
-impl From<reqwest::Error> for GithubSyncError {
-    fn from(value: reqwest::Error) -> Self {
-        if value.is_builder() {
-            return GithubSyncError::Builder;
-        }
-        GithubSyncError::NetworkError(value.to_string())
-    }
-}
-
-#[derive(Debug, Clone, Display, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum CreateGithubRecordError {
-    #[display(fmt = "database error")]
+    #[error("Database error")]
     Database,
 }
 
@@ -492,9 +484,6 @@ impl From<GithubSyncError> for SyncError {
         match val {
             GithubSyncError::NetworkError(e) => SyncError::NetworkError(e),
             GithubSyncError::Other(e) => SyncError::Other(e),
-            GithubSyncError::Builder => SyncError::Client,
-            GithubSyncError::Database => SyncError::Database,
-            GithubSyncError::Request => SyncError::RemoteServer,
             GithubSyncError::UserError(e) => SyncError::UserError(e),
             GithubSyncError::NotFound => SyncError::NotFound,
             GithubSyncError::NoToken => SyncError::UserError(val.to_string()),

@@ -9,7 +9,6 @@ edition = "2021"
 actix-cors = "0.7.0"
 actix-rt = "2.9.0"
 actix-web = { version = "4.5.1" }
-derive_more = "0.99.17"
 diesel = { version = "2.1.5", features = ["mysql", "r2d2", "chrono"] }
 dotenv = "0.15.0"
 futures = "0.3.30"
@@ -26,3 +25,5 @@ base64 = "0.22.1"
 markdown = "1.0.0-alpha.17"
 async-trait = "0.1.80"
 serde_yaml = "0.9.34"
+anyhow = "1.0.86"
+thiserror = "1.0.61"

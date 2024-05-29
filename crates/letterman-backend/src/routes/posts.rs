@@ -18,24 +18,26 @@ use crate::{
     State,
 };
 
-#[derive(Debug, Display)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum PostResponseError {
-    #[display(fmt = "Validation error on field: {}, msg: {}", field, msg)]
+    #[error("Validation Error: {field}: {msg}")]
     ValidationError {
         field: &'static str,
         msg: &'static str,
     },
-    #[display(fmt = "{msg}")]
+    #[error("User Error: {msg}")]
     UserError { msg: String },
-    #[display(fmt = "Database error")]
+    #[error("Database Error")]
     Database,
-    #[display(fmt = "Pool Error: {}", _0)]
-    Pool(r2d2::Error),
-    #[display(fmt = "canceled")]
+    #[error("Pool Error")]
+    Pool(#[source] r2d2::Error),
+    #[error("Request canceled")]
     Canceled,
-    #[display(fmt = "not found")]
+    #[error("Post not found")]
     NotFound,
-    #[display(fmt = "unknown error: {}", _0)]
+    #[error("Server Error: {0}")]
     Other(String),
 }
 
@@ -203,7 +205,6 @@ impl From<DbActionError<DeletePostError>> for PostResponseError {
             DbActionError::Error(e) => match e {
                 DeletePostError::Database => PostResponseError::Database,
                 DeletePostError::NotFound => PostResponseError::NotFound,
-                DeletePostError::SyncError(e) => PostResponseError::Other(e),
             },
             DbActionError::Pool(e) => PostResponseError::Pool(e),
             DbActionError::Canceled => PostResponseError::Canceled,
@@ -219,7 +220,6 @@ impl From<SyncError> for PostResponseError {
             SyncError::Ambiguous => PostResponseError::UserError {
                 msg: item.to_string(),
             },
-            SyncError::Client => PostResponseError::Other(item.to_string()),
             SyncError::RemoteServer => PostResponseError::Other(item.to_string()),
             SyncError::UserError(e) => PostResponseError::UserError { msg: e },
             SyncError::NetworkError(e) => PostResponseError::Other(e),

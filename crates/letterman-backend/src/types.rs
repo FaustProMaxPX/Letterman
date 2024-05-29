@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
 
 use crate::traits::Validate;
 
@@ -58,8 +59,8 @@ pub struct PageReq {
     pub page_size: i32,
 }
 
-#[derive(Error, Debug, Display)]
-#[display(fmt = "field: {}, msg: {}", field, msg)]
+#[derive(Error, Debug)]
+#[error("Invalid Page Request: {field}: {msg}")]
 pub struct PageValidationError {
     pub field: &'static str,
     pub msg: &'static str,

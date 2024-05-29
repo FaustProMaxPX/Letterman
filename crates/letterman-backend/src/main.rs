@@ -5,7 +5,7 @@ pub mod traits;
 pub mod types;
 pub mod utils;
 
-use std::{env, error::Error};
+use std::env;
 
 use actix_web::{
     middleware::Logger,
@@ -20,12 +20,11 @@ use routes::{
     posts::{create, delete_post, force_pull, force_push, get_list, get_post, synchronize, update},
 };
 
-#[macro_use]
-extern crate derive_more;
+pub use anyhow::Result;
 
 extern crate snowflake;
 
-pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<dyn Error>> {
+pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::new(db_url);
     let pool = Pool::builder().build(manager)?;
@@ -43,7 +42,7 @@ struct State {
 }
 
 #[actix_web::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     init_logger();
     let pool = database_pool()?;

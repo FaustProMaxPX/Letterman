@@ -1,8 +1,9 @@
 use actix_web::{error::BlockingError, web::block};
-use derive_more::{Display, Error};
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use r2d2::Pool;
+
+use thiserror::Error;
 
 pub trait Validate {
     type Item;
@@ -11,18 +12,15 @@ pub trait Validate {
     fn validate(self) -> Result<Self::Item, Self::Error>;
 }
 
-#[derive(Debug, Error, Display)]
-pub enum DbActionError<E>
-where
-    E: std::error::Error,
-{
-    #[display(fmt = "database error in db action: {}", _0)]
-    Error(E),
+#[derive(Debug, Error)]
+pub enum DbActionError<E> {
+    #[error("Database error: {0}")]
+    Error(#[source] E),
 
-    #[display(fmt = "database error in pool: {}", _0)]
-    Pool(r2d2::Error),
+    #[error("Pool error: {0}")]
+    Pool(#[source] r2d2::Error),
 
-    #[display(fmt = "db action was canceled")]
+    #[error("The request is canceled")]
     Canceled,
 }
 

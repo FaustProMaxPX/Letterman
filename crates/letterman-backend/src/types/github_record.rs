@@ -4,6 +4,7 @@ use base64::Engine;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::t_github_post_record)]
@@ -168,16 +169,16 @@ pub struct WriteContentRespInner {
     pub sha: String,
     pub path: String,
     pub url: String,
-    pub download_url: String
+    pub download_url: String,
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Error)]
 pub enum DecodeError {
-    #[display(fmt = "decode failed, {}, {}", _0, _1)]
+    #[error("Something error in decoding. algorithm: {0}, error: {1}")]
     Decode(String, String),
-    #[display(fmt = "convert failed")]
+    #[error("Invalid content")]
     Convert,
-    #[display(fmt = "unsupported encoding: {}", _0)]
+    #[error("Unsupported encoding: {0}")]
     UnsupportedEncoding(String),
 }
 
@@ -193,12 +194,10 @@ impl From<FromUtf8Error> for DecodeError {
     }
 }
 
-impl std::error::Error for DecodeError {}
-
-#[derive(Debug, Clone, Display, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum QueryGithubRecordError {
-    #[display(fmt = "database error")]
+    #[error("Database Error")]
     Database,
-    #[display(fmt = "not found")]
+    #[error("Post not found")]
     NotFound,
 }

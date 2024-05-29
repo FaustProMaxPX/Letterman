@@ -5,6 +5,7 @@ use std::{
 };
 
 use serde::Deserialize;
+use thiserror::Error;
 
 use crate::{
     traits::DbActionError,
@@ -57,29 +58,25 @@ impl Context {
     }
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Error)]
 pub enum SyncError {
-    #[display(fmt = "database error")]
+    #[error("Database Error")]
     Database,
-    #[display(fmt = "not found")]
+    #[error("Post not found")]
     NotFound,
-    #[display(fmt = "System cannot decide push or pull")]
+    #[error("System cannot decide push or pull")]
     Ambiguous,
-    #[display(fmt = "Something error in client")]
-    Client,
-    #[display(fmt = "Get error from remote server")]
+    #[error("Failed to request remote server")]
     RemoteServer,
-    #[display(fmt = "user error: {}", _0)]
+    #[error("User error: {0}")]
     UserError(String),
-    #[display(fmt = "network error: {}", _0)]
+    #[error("Network error: {0}")]
     NetworkError(String),
-    #[display(fmt = "decode error")]
+    #[error("Decode Error")]
     Decode,
-    #[display(fmt = "unknown error: {}", _0)]
+    #[error("Unknown error: {0}")]
     Other(String),
 }
-
-impl std::error::Error for SyncError {}
 
 impl From<DbActionError<QueryPostError>> for SyncError {
     fn from(value: DbActionError<QueryPostError>) -> Self {

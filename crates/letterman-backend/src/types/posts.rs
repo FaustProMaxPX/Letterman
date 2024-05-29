@@ -18,6 +18,8 @@ use super::{
     deserialize_from_string, serialize_as_string, serialize_metadata, PageValidationError,
 };
 
+use thiserror::Error;
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Post {
@@ -361,9 +363,9 @@ impl ValidatedPostCreation {
     }
 }
 
-#[derive(Debug, Error, Clone, Serialize, Display)]
+#[derive(Debug, Error, Clone, Serialize)]
 pub enum CreatePostError {
-    #[display(fmt = "database error")]
+    #[error("Database Error")]
     Database,
 }
 
@@ -374,17 +376,16 @@ impl From<diesel::result::Error> for CreatePostError {
     }
 }
 
-#[derive(Debug, Error, Clone, Serialize, Display)]
+#[derive(Debug, Error, Clone, Serialize)]
 pub enum QueryPostError {
-    #[display(fmt = "database error")]
+    #[error("Database Error")]
     Database,
-    #[display(fmt = "not found post")]
+    #[error("Post not found")]
     NotFound,
 }
 
 impl From<diesel::result::Error> for QueryPostError {
     fn from(item: diesel::result::Error) -> Self {
-        error!("query post error: database error, e: {item}");
         match item {
             diesel::result::Error::NotFound => QueryPostError::NotFound,
             _ => QueryPostError::Database,
@@ -392,13 +393,13 @@ impl From<diesel::result::Error> for QueryPostError {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Display, Error)]
+#[derive(Debug, Clone, Serialize, Error)]
 pub enum UpdatePostError {
-    #[display(fmt = "database error")]
+    #[error("Database Error")]
     Database,
-    #[display(fmt = "not found post ")]
+    #[error("Post not found")]
     NotFound,
-    #[display(fmt = "you're not operating the latest version of the post")]
+    #[error("Please use the latest version of the post")]
     NotLatestVersion,
 }
 
@@ -412,31 +413,20 @@ impl From<diesel::result::Error> for UpdatePostError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum DeletePostError {
+    #[error("Database Error")]
     Database,
+    #[error("Post not found")]
     NotFound,
-    SyncError(String),
 }
 
-impl std::error::Error for DeletePostError {}
 
 impl From<diesel::result::Error> for DeletePostError {
     fn from(item: diesel::result::Error) -> Self {
-        error!("delete post error: database error, e: {item}");
         match item {
             diesel::result::Error::NotFound => DeletePostError::NotFound,
             _ => DeletePostError::Database,
-        }
-    }
-}
-
-impl std::fmt::Display for DeletePostError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            DeletePostError::Database => write!(f, "database error"),
-            DeletePostError::SyncError(e) => write!(f, "sync error: {e}"),
-            DeletePostError::NotFound => write!(f, "not found post"),
         }
     }
 }
