@@ -99,7 +99,7 @@ const OptionCell = ({ id }: { id: string }) => {
         height: "100%",
       }}
     >
-      <NavIconButton aria-label="edit" color="primary" path={`/post/${id}`}>
+      <NavIconButton aria-label="edit" color="primary" path={`/posts/${id}`}>
         <EditIcon />
       </NavIconButton>
       <IconButton
@@ -187,7 +187,7 @@ export const PostPage = () => {
             <Button
               type="button"
               variant="contained"
-              onClick={() => navigate("/post/new")}
+              onClick={() => navigate("/posts/new")}
             >
               创建新文章
             </Button>

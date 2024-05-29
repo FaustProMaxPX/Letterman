@@ -22,6 +22,7 @@ import { ErrorDisplay } from "./components/errorPage";
 import { PostForm } from "./components/postForm";
 import { PostPage } from "./components/postPage";
 import { mainListItems } from "./listItems";
+import { RouterBreadcurmbs } from "./components/RouterBreadcrumbs";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
@@ -140,13 +141,14 @@ const App = () => {
           >
             <Toolbar />
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4, height: "80%" }}>
+              <RouterBreadcurmbs />
               <Notification />
               <ErrorBoundary FallbackComponent={ErrorDisplay}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/posts" element={<PostPage />} />
-                  <Route path="/post/:id" element={<PostForm />} />
-                  <Route path="/post/new" element={<PostForm />} />
+                  <Route path="/posts/:id" element={<PostForm />} />
+                  <Route path="/posts/new" element={<PostForm />} />
                 </Routes>
               </ErrorBoundary>
             </Container>
