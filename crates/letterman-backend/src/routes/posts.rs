@@ -167,12 +167,18 @@ impl From<DbActionError<CreatePostError>> for PostResponseError {
 impl From<DbActionError<QueryPostError>> for PostResponseError {
     fn from(value: DbActionError<QueryPostError>) -> Self {
         match value {
-            DbActionError::Error(e) => match e {
-                QueryPostError::NotFound => PostResponseError::NotFound,
-                _ => PostResponseError::Other(e.to_string()),
-            },
+            DbActionError::Error(e) => e.into(),
             DbActionError::Pool(e) => PostResponseError::Pool(e),
             DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<QueryPostError> for PostResponseError {
+    fn from(item: QueryPostError) -> Self {
+        match item {
+            QueryPostError::Database => PostResponseError::Database,
+            QueryPostError::NotFound => PostResponseError::NotFound,
         }
     }
 }
@@ -180,15 +186,21 @@ impl From<DbActionError<QueryPostError>> for PostResponseError {
 impl From<DbActionError<UpdatePostError>> for PostResponseError {
     fn from(item: DbActionError<UpdatePostError>) -> Self {
         match item {
-            DbActionError::Error(e) => match e {
-                UpdatePostError::Database => PostResponseError::Database,
-                UpdatePostError::NotFound => PostResponseError::NotFound,
-                UpdatePostError::NotLatestVersion => {
-                    PostResponseError::UserError { msg: e.to_string() }
-                }
-            },
+            DbActionError::Error(e) => e.into(),
             DbActionError::Pool(e) => PostResponseError::Pool(e),
             DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<UpdatePostError> for PostResponseError {
+    fn from(item: UpdatePostError) -> Self {
+        match item {
+            UpdatePostError::Database => PostResponseError::Database,
+            UpdatePostError::NotFound => PostResponseError::NotFound,
+            UpdatePostError::NotLatestVersion => PostResponseError::UserError {
+                msg: item.to_string(),
+            },
         }
     }
 }
@@ -202,12 +214,18 @@ impl From<actix_web::error::Error> for PostResponseError {
 impl From<DbActionError<DeletePostError>> for PostResponseError {
     fn from(item: DbActionError<DeletePostError>) -> Self {
         match item {
-            DbActionError::Error(e) => match e {
-                DeletePostError::Database => PostResponseError::Database,
-                DeletePostError::NotFound => PostResponseError::NotFound,
-            },
+            DbActionError::Error(e) => e.into(),
             DbActionError::Pool(e) => PostResponseError::Pool(e),
             DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<DeletePostError> for PostResponseError {
+    fn from(item: DeletePostError) -> Self {
+        match item {
+            DeletePostError::Database => PostResponseError::Database,
+            DeletePostError::NotFound => PostResponseError::NotFound,
         }
     }
 }
