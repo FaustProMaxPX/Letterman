@@ -370,8 +370,7 @@ pub enum CreatePostError {
 }
 
 impl From<diesel::result::Error> for CreatePostError {
-    fn from(e: diesel::result::Error) -> Self {
-        error!("create post error: database error, e: {e}");
+    fn from(_: diesel::result::Error) -> Self {
         CreatePostError::Database
     }
 }
@@ -420,7 +419,6 @@ pub enum DeletePostError {
     #[error("Post not found")]
     NotFound,
 }
-
 
 impl From<diesel::result::Error> for DeletePostError {
     fn from(item: diesel::result::Error) -> Self {

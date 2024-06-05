@@ -1,23 +1,19 @@
-use std::{collections::HashMap, string::FromUtf8Error, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
-use base64::Engine;
-use diesel::{r2d2::ConnectionManager, MysqlConnection};
 
 use log::error;
 use markdown::{mdast::Node, Constructs};
-use r2d2::Pool;
 use reqwest::header::{self, HeaderValue};
-use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
     operations::github_record::{GithubRecordCreator, GithubRecordQueryerByPostId},
-    traits::{DbAction, DbActionError},
+    traits::{MongoAction, MongoActionError},
     types::{
         github_record::{
-            CreateContentParam, GithubRecord, InsertableGithubRecord, QueryGithubRecordError,
-            UpdateContentParam, WriteContentResp,
+            CreateContentParam, GithubArticleRecord, GithubRecord, InsertableGithubRecord,
+            QueryGithubRecordError, UpdateContentParam, WriteContentResp,
         },
         posts::Post,
     },
@@ -44,7 +40,7 @@ impl SyncAction for GithubSyncer {
     async fn push_create(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<(), super::SyncError> {
         if self.path.is_none() || self.repository.is_none() {
             return Err(GithubSyncError::UserError(
@@ -70,7 +66,7 @@ impl SyncAction for GithubSyncer {
             repo.clone(),
             resp.content.download_url,
         ))
-        .execute(pool.clone())
+        .execute(mongo_db.clone())
         .await?;
         Ok(())
     }
@@ -78,10 +74,10 @@ impl SyncAction for GithubSyncer {
     async fn push_update(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<(), super::SyncError> {
         let records = self
-            .get_github_sync_records(post.post_id(), pool.clone())
+            .get_github_sync_records(post.post_id(), mongo_db.clone())
             .await?;
         let record = records.unwrap().first().unwrap().clone();
         let url = format!(
@@ -108,7 +104,7 @@ impl SyncAction for GithubSyncer {
             record.repository().to_string(),
             resp.content.download_url,
         ))
-        .execute(pool.clone())
+        .execute(mongo_db.clone())
         .await?;
         Ok(())
     }
@@ -116,9 +112,11 @@ impl SyncAction for GithubSyncer {
     async fn pull(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<Option<Post>, super::SyncError> {
-        let content = self.get_github_post(post.post_id(), pool.clone()).await?;
+        let content = self
+            .get_github_post(post.post_id(), mongo_db.clone())
+            .await?;
         if content.is_none() {
             return Ok(None);
         }
@@ -146,10 +144,10 @@ impl SyncAction for GithubSyncer {
     async fn check_changed(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<(bool, bool, bool), super::SyncError> {
         let records = self
-            .get_github_sync_records(post.post_id(), pool.clone())
+            .get_github_sync_records(post.post_id(), mongo_db.clone())
             .await?;
         if records.is_none() {
             return Ok((false, false, true));
@@ -198,8 +196,8 @@ impl GithubSyncer {
     async fn get_github_sync_records(
         &mut self,
         post_id: i64,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
-    ) -> Result<Option<Vec<GithubRecord>>, DbActionError<QueryGithubRecordError>> {
+        mongo_db: mongodb::Database,
+    ) -> Result<Option<Vec<GithubRecord>>, MongoActionError<QueryGithubRecordError>> {
         // 定义一个局部作用域，以限制可变借用的范围
         let records: Option<Vec<GithubRecord>> = {
             // 仅当需要插入记录时，才进行可变借用
@@ -209,7 +207,7 @@ impl GithubSyncer {
         {
             if records.is_none() {
                 let new_records = GithubRecordQueryerByPostId(post_id)
-                    .execute(pool.clone())
+                    .execute(mongo_db.clone())
                     .await?;
                 if !new_records.is_empty() {
                     self.ctx
@@ -224,7 +222,7 @@ impl GithubSyncer {
     async fn get_github_post(
         &mut self,
         post_id: i64,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<Option<GithubArticleRecord>, SyncError> {
         {
             let post: Option<&GithubArticleRecord> = self.ctx.get(GITHUB_SYNC_POST_KEY);
@@ -233,7 +231,9 @@ impl GithubSyncer {
             }
         }
 
-        let records = self.get_github_sync_records(post_id, pool.clone()).await?;
+        let records = self
+            .get_github_sync_records(post_id, mongo_db.clone())
+            .await?;
         if records.is_none() {
             return Ok(None);
         }
@@ -261,37 +261,6 @@ impl GithubSyncer {
                 .unwrap()
                 .clone(),
         ))
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct GithubArticleRecord {
-    name: String,
-    path: String,
-    content: String,
-    sha: String,
-    url: String,
-    encoding: String,
-}
-
-impl GithubArticleRecord {
-    pub fn decode_content(self) -> Result<GithubArticleRecord, DecodeError> {
-        match &*self.encoding {
-            "base64" => {
-                let content = self.content.replace('\n', "");
-                let content = base64::prelude::BASE64_STANDARD.decode(content)?;
-                let content = String::from_utf8(content)?;
-                Ok(GithubArticleRecord {
-                    name: self.name,
-                    path: self.path,
-                    content,
-                    sha: self.sha,
-                    url: self.url,
-                    encoding: self.encoding,
-                })
-            }
-            _ => Err(DecodeError::UnsupportedEncoding(self.encoding.clone())),
-        }
     }
 }
 
@@ -383,34 +352,6 @@ fn dfs(node: &markdown::mdast::Node) -> Vec<(String, String)> {
 }
 
 #[derive(Debug, Clone, Error)]
-pub enum DecodeError {
-    #[error("Decode Error: algorithm: {0}, error: {1}")]
-    Decode(String, String),
-    #[error("Invalid content")]
-    Convert,
-    #[error("Unsupported encoding: {0}")]
-    UnsupportedEncoding(String),
-}
-
-impl From<base64::DecodeError> for DecodeError {
-    fn from(value: base64::DecodeError) -> Self {
-        DecodeError::Decode("base64".to_string(), value.to_string())
-    }
-}
-
-impl From<FromUtf8Error> for DecodeError {
-    fn from(_: FromUtf8Error) -> Self {
-        DecodeError::Convert
-    }
-}
-
-impl From<DecodeError> for SyncError {
-    fn from(_value: DecodeError) -> Self {
-        SyncError::Decode
-    }
-}
-
-#[derive(Debug, Clone, Error)]
 pub enum GithubSyncError {
     #[error("Network Error")]
     NetworkError(String),
@@ -430,11 +371,11 @@ impl From<reqwest::Error> for GithubSyncError {
     }
 }
 
-impl From<DbActionError<QueryGithubRecordError>> for SyncError {
-    fn from(value: DbActionError<QueryGithubRecordError>) -> Self {
+impl From<MongoActionError<QueryGithubRecordError>> for SyncError {
+    fn from(value: MongoActionError<QueryGithubRecordError>) -> Self {
         match value {
-            DbActionError::Pool(_) | DbActionError::Canceled => SyncError::Database,
-            DbActionError::Error(e) => e.into(),
+            MongoActionError::Pool(_) => SyncError::Database,
+            MongoActionError::Error(e) => e.into(),
         }
     }
 }
@@ -442,7 +383,7 @@ impl From<DbActionError<QueryGithubRecordError>> for SyncError {
 impl From<QueryGithubRecordError> for SyncError {
     fn from(item: QueryGithubRecordError) -> Self {
         match item {
-            QueryGithubRecordError::Database => SyncError::Database,
+            QueryGithubRecordError::Database(_) => SyncError::Database,
             QueryGithubRecordError::NotFound => {
                 SyncError::UserError("not found the query record".to_string())
             }
@@ -450,11 +391,11 @@ impl From<QueryGithubRecordError> for SyncError {
     }
 }
 
-impl From<DbActionError<CreateGithubRecordError>> for SyncError {
-    fn from(value: DbActionError<CreateGithubRecordError>) -> Self {
+impl From<MongoActionError<CreateGithubRecordError>> for SyncError {
+    fn from(value: MongoActionError<CreateGithubRecordError>) -> Self {
         match value {
-            DbActionError::Error(e) => e.into(),
-            DbActionError::Pool(_) | DbActionError::Canceled => SyncError::Database,
+            MongoActionError::Error(e) => e.into(),
+            MongoActionError::Pool(_) => SyncError::Database,
         }
     }
 }
@@ -462,7 +403,7 @@ impl From<DbActionError<CreateGithubRecordError>> for SyncError {
 impl From<CreateGithubRecordError> for SyncError {
     fn from(value: CreateGithubRecordError) -> Self {
         match value {
-            CreateGithubRecordError::Database => SyncError::Database,
+            CreateGithubRecordError::Database(_) => SyncError::Database,
         }
     }
 }
@@ -470,13 +411,7 @@ impl From<CreateGithubRecordError> for SyncError {
 #[derive(Debug, Clone, Error)]
 pub enum CreateGithubRecordError {
     #[error("Database error")]
-    Database,
-}
-
-impl From<diesel::result::Error> for CreateGithubRecordError {
-    fn from(_item: diesel::result::Error) -> Self {
-        CreateGithubRecordError::Database
-    }
+    Database(#[source] mongodb::error::Error),
 }
 
 impl From<GithubSyncError> for SyncError {
@@ -507,8 +442,9 @@ impl From<serde_json::Error> for SyncError {
 mod github_sync_test {
     use std::env;
 
+    use crate::traits::DbAction;
     use crate::{
-        database_pool,
+        database_pool, mongodb_database,
         operations::{posts::LatestPostQueryerByPostId, remote::synchronize},
         types::github_record::GithubArticleRecord,
     };
@@ -519,11 +455,18 @@ mod github_sync_test {
     async fn github_syncer_test() -> Result<(), Box<dyn std::error::Error>> {
         dotenv::dotenv().ok();
         let pool = database_pool()?;
+        let db = mongodb_database().await?;
         let syncer = GithubSyncer::new(
             Some("README.md".to_string()),
             Some("ZephyrZenn/test-repo".to_string()),
         )?;
-        synchronize(Box::new(syncer), 7183026894152011778, pool.clone()).await?;
+        synchronize(
+            Box::new(syncer),
+            7183026894152011778,
+            pool.clone(),
+            db.clone(),
+        )
+        .await?;
         Ok(())
     }
 
@@ -552,11 +495,12 @@ mod github_sync_test {
     async fn pull_test() -> Result<(), Box<dyn std::error::Error>> {
         dotenv::dotenv().ok();
         let pool = database_pool()?;
+        let db = mongodb_database().await?;
         let mut syncer = GithubSyncer::new(None, None)?;
         let post = LatestPostQueryerByPostId(7183657854551855106)
             .execute(pool.clone())
             .await?;
-        let remote_post = syncer.pull(&post, pool.clone()).await?;
+        let remote_post = syncer.pull(&post, db.clone()).await?;
         if let Some(remote_post) = remote_post {
             assert!(!remote_post.metadata().is_empty())
         }
@@ -585,11 +529,11 @@ mod github_sync_test {
     #[actix_web::test]
     async fn context_test() -> Result<(), Box<dyn std::error::Error>> {
         dotenv::dotenv().ok();
-        let pool = database_pool().unwrap();
+        let db = mongodb_database().await?;
         {
             let mut ctx = Context::new();
             let new_records: Vec<GithubRecord> = GithubRecordQueryerByPostId(7191634464299159554)
-                .execute(pool.clone())
+                .execute(db.clone())
                 .await?;
             if !new_records.is_empty() {
                 ctx.set(GITHUB_SYNC_RECORDS_KEY.to_string(), new_records);

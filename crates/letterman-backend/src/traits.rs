@@ -1,6 +1,8 @@
 use actix_web::{error::BlockingError, web::block};
+use async_trait::async_trait;
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
+use mongodb::bson::Document;
 use r2d2::Pool;
 
 use thiserror::Error;
@@ -74,20 +76,24 @@ pub enum MongoActionError<E> {
     Pool(mongodb::error::Error),
 }
 
+#[async_trait]
 pub trait MongoAction {
     type Item: Send + 'static;
     type Error: std::error::Error + Send;
 
-    fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error>;
+    async fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error>;
 
-    fn execute(
+    async fn execute(
         self,
         db: mongodb::Database,
-    ) -> BoxFuture<'static, Result<Self::Item, MongoActionError<Self::Error>>>
+    ) -> Result<Self::Item, MongoActionError<Self::Error>>
     where
         Self: std::marker::Sized + Send + 'static,
     {
-        let result = async move { self.mongo_action(db).map_err(MongoActionError::Error) };
-        Box::pin(result)
+        self.mongo_action(db).await.map_err(MongoActionError::Error)
     }
+}
+
+pub trait DocumentConvert {
+    fn to_doc(self) -> Document;
 }

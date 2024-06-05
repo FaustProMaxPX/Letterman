@@ -2,13 +2,13 @@ use std::string::FromUtf8Error;
 
 use base64::Engine;
 use chrono::NaiveDateTime;
-use diesel::prelude::*;
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Queryable, Selectable, Debug, Clone)]
-#[diesel(table_name = crate::schema::t_github_post_record)]
-#[diesel(check_for_backend(diesel::mysql::Mysql))]
+use crate::{operations::remote::types::SyncError, traits::DocumentConvert};
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct GithubRecord {
     id: i32,
     post_id: i64,
@@ -59,9 +59,6 @@ impl GithubRecord {
     }
 }
 
-#[derive(Insertable)]
-#[diesel(table_name = crate::schema::t_github_post_record)]
-#[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct InsertableGithubRecord {
     pub post_id: i64,
     pub version: i32,
@@ -69,6 +66,19 @@ pub struct InsertableGithubRecord {
     pub sha: String,
     pub repository: String,
     pub url: String,
+}
+
+impl DocumentConvert for InsertableGithubRecord {
+    fn to_doc(self) -> mongodb::bson::Document {
+        doc! {
+            "post_id": self.post_id,
+            "version": self.version,
+            "path": self.path,
+            "sha": self.sha,
+            "repository": self.repository,
+            "url": self.url
+        }
+    }
 }
 
 impl InsertableGithubRecord {
@@ -92,7 +102,7 @@ impl InsertableGithubRecord {
 }
 
 /// schema of response from github
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GithubArticleRecord {
     pub name: String,
     pub path: String,
@@ -174,7 +184,7 @@ pub struct WriteContentRespInner {
 
 #[derive(Debug, Clone, Error)]
 pub enum DecodeError {
-    #[error("Something error in decoding. algorithm: {0}, error: {1}")]
+    #[error("Decode Error: algorithm: {0}, error: {1}")]
     Decode(String, String),
     #[error("Invalid content")]
     Convert,
@@ -194,10 +204,16 @@ impl From<FromUtf8Error> for DecodeError {
     }
 }
 
+impl From<DecodeError> for SyncError {
+    fn from(_value: DecodeError) -> Self {
+        SyncError::Decode
+    }
+}
+
 #[derive(Debug, Clone, Error)]
 pub enum QueryGithubRecordError {
     #[error("Database Error")]
-    Database,
+    Database(#[source] mongodb::error::Error),
     #[error("Post not found")]
     NotFound,
 }

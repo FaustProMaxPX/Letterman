@@ -21,18 +21,17 @@ use routes::{
     posts::{create, delete_post, force_pull, force_push, get_list, get_post, synchronize, update},
 };
 
-pub use anyhow::Result;
-
 extern crate snowflake;
 
-pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>> {
+pub fn database_pool(
+) -> Result<Pool<ConnectionManager<MysqlConnection>>, Box<dyn std::error::Error>> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::new(db_url);
     let pool = Pool::builder().build(manager)?;
     Ok(pool)
 }
 
-pub async fn mongodb_database() -> Result<mongodb::Database> {
+pub async fn mongodb_database() -> Result<mongodb::Database, Box<dyn std::error::Error>> {
     let uri = env::var("MONGODB_CONNECT_STRING").expect("MONGODB_CONNECT_STRING must be set");
     let mut options = ClientOptions::parse(uri).await?;
     options.max_pool_size = Some(20);
@@ -53,7 +52,7 @@ struct State {
 }
 
 #[actix_web::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     init_logger();
     let pool = database_pool()?;

@@ -1,71 +1,85 @@
-use diesel::prelude::*;
+use async_trait::async_trait;
+use futures::StreamExt;
+use mongodb::{bson::doc, Cursor};
 
 use crate::{
-    schema,
-    traits::DbAction,
-    types::github_record::{
-        GithubRecord, InsertableGithubRecord, QueryGithubRecordError,
-    },
+    traits::{DocumentConvert, MongoAction},
+    types::github_record::{GithubRecord, InsertableGithubRecord, QueryGithubRecordError},
 };
 
-use super::remote::github::CreateGithubRecordError;
+use super::{constants, remote::github::CreateGithubRecordError};
 
 pub struct GithubRecordQueryerByPostId(pub i64);
 
-impl DbAction for GithubRecordQueryerByPostId {
+#[async_trait]
+impl MongoAction for GithubRecordQueryerByPostId {
     type Item = Vec<GithubRecord>;
 
     type Error = QueryGithubRecordError;
 
-    fn db_action(
-        self,
-        conn: &mut diesel::prelude::MysqlConnection,
-    ) -> Result<Self::Item, Self::Error> {
-        use schema::t_github_post_record::dsl::*;
-        let records: Vec<GithubRecord> = t_github_post_record
-            .filter(post_id.eq(self.0))
-            .order_by(version.desc())
-            .load(conn)?;
+    async fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error> {
+        let filter = doc! {"post_id": self.0};
+        let cursor: Cursor<GithubRecord> = db
+            .collection(constants::SYNC_RECORDS_COLLECTION)
+            .find(filter, None)
+            .await?;
+        let records = cursor
+            .filter_map(|doc| async {
+                match doc {
+                    Ok(doc) => Some(doc),
+                    Err(_) => {
+                        eprintln!("error: {:?}", doc);
+                        None
+                    }
+                }
+            })
+            .collect()
+            .await;
         Ok(records)
     }
 }
 
 pub struct GithubRecordCreator(pub InsertableGithubRecord);
 
-impl DbAction for GithubRecordCreator {
+#[async_trait]
+impl MongoAction for GithubRecordCreator {
     type Item = ();
 
     type Error = CreateGithubRecordError;
 
-    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
-        use schema::t_github_post_record::dsl::*;
-        diesel::insert_into(t_github_post_record)
-            .values(&self.0)
-            .execute(conn)?;
+    async fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error> {
+        let doc = self.0.to_doc();
+        db.collection(constants::SYNC_RECORDS_COLLECTION)
+            .insert_one(doc, None)
+            .await?;
         Ok(())
     }
 }
 
-impl From<diesel::result::Error> for QueryGithubRecordError {
-    fn from(value: diesel::result::Error) -> Self {
-        match value {
-            diesel::result::Error::NotFound => QueryGithubRecordError::NotFound,
-            _ => QueryGithubRecordError::Database,
-        }
+impl From<mongodb::error::Error> for CreateGithubRecordError {
+    fn from(item: mongodb::error::Error) -> Self {
+        CreateGithubRecordError::Database(item)
+    }
+}
+
+impl From<mongodb::error::Error> for QueryGithubRecordError {
+    fn from(value: mongodb::error::Error) -> Self {
+        QueryGithubRecordError::Database(value)
     }
 }
 
 #[cfg(test)]
 mod github_record_test {
 
-    use crate::database_pool;
+    use crate::{database_pool, mongodb_database};
 
     use super::*;
 
     #[actix_web::test]
     async fn insert_test() {
         dotenv::dotenv().ok();
-        let pool = database_pool().unwrap();
+        let db = mongodb_database().await.unwrap();
+        let _pool = database_pool().unwrap();
         let record = InsertableGithubRecord::new(
             1,
             1,
@@ -74,7 +88,7 @@ mod github_record_test {
             String::from("repository"),
             String::from("url"),
         );
-        let res = GithubRecordCreator(record).execute(pool).await;
+        let res = GithubRecordCreator(record).execute(db.clone()).await;
         assert!(res.is_ok());
     }
 }

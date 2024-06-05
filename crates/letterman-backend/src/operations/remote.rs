@@ -18,21 +18,21 @@ pub trait SyncAction {
     async fn push_create(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<(), SyncError>;
 
     /// push post to update an article in outer platform
     async fn push_update(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<(), SyncError>;
 
     /// pull latest post in outer platform by the param provided by syncer
     async fn pull(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<Option<Post>, SyncError>;
 
     /// check if the article is changed
@@ -40,7 +40,7 @@ pub trait SyncAction {
     async fn check_changed(
         &mut self,
         post: &Post,
-        pool: Pool<ConnectionManager<MysqlConnection>>,
+        mongo_db: mongodb::Database,
     ) -> Result<(bool, bool, bool), SyncError>;
 }
 
@@ -52,18 +52,19 @@ pub(crate) async fn synchronize(
     mut syncer: Box<dyn SyncAction>,
     post_id: i64,
     pool: Pool<ConnectionManager<MysqlConnection>>,
+    mongo_db: mongodb::Database,
 ) -> Result<(), SyncError> {
     let post = LatestPostQueryerByPostId(post_id)
         .execute(pool.clone())
         .await?;
     let (is_latest, is_older_version, never_synced) =
-        syncer.check_changed(&post, pool.clone()).await?;
+        syncer.check_changed(&post, mongo_db.clone()).await?;
     if never_synced {
-        syncer.push_create(&post, pool.clone()).await
+        syncer.push_create(&post, mongo_db.clone()).await
     } else if is_latest {
         Ok(())
     } else if is_older_version {
-        syncer.push_update(&post, pool.clone()).await
+        syncer.push_update(&post, mongo_db.clone()).await
     } else {
         Err(SyncError::Ambiguous)
     }
@@ -74,11 +75,12 @@ pub(crate) async fn force_pull(
     mut syncer: Box<dyn SyncAction>,
     post_id: i64,
     pool: Pool<ConnectionManager<MysqlConnection>>,
+    mongo_db: mongodb::Database,
 ) -> Result<(), SyncError> {
     let post = LatestPostQueryerByPostId(post_id)
         .execute(pool.clone())
         .await?;
-    let remote_post = syncer.pull(&post, pool.clone()).await?;
+    let remote_post = syncer.pull(&post, mongo_db.clone()).await?;
     if let Some(post) = remote_post {
         PostDirectCreator(post).execute(pool.clone()).await?;
         Ok(())
@@ -94,9 +96,10 @@ pub(crate) async fn force_push(
     mut syncer: Box<dyn SyncAction>,
     post_id: i64,
     pool: Pool<ConnectionManager<MysqlConnection>>,
+    mongo_db: mongodb::Database,
 ) -> Result<(), SyncError> {
     let post = LatestPostQueryerByPostId(post_id)
         .execute(pool.clone())
         .await?;
-    syncer.push_update(&post, pool.clone()).await
+    syncer.push_update(&post, mongo_db.clone()).await
 }

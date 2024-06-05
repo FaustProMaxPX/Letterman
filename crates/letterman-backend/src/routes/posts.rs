@@ -100,7 +100,13 @@ pub(crate) async fn synchronize(
 ) -> Result<HttpResponse, PostResponseError> {
     let post_id = post_id.into_inner();
     let syncer = SyncerFactory::create(req.into_inner())?;
-    remote::synchronize(syncer, post_id, state.pool.clone()).await?;
+    remote::synchronize(
+        syncer,
+        post_id,
+        state.pool.clone(),
+        state.mongodb_database.clone(),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
 }
 
@@ -111,7 +117,13 @@ pub(crate) async fn force_pull(
 ) -> Result<HttpResponse, PostResponseError> {
     let post_id = post_id.into_inner();
     let syncer = SyncerFactory::create(req.into_inner())?;
-    remote::force_pull(syncer, post_id, state.pool.clone()).await?;
+    remote::force_pull(
+        syncer,
+        post_id,
+        state.pool.clone(),
+        state.mongodb_database.clone(),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
 }
 
@@ -122,7 +134,13 @@ pub(crate) async fn force_push(
 ) -> Result<HttpResponse, PostResponseError> {
     let post_id = post_id.into_inner();
     let syncer = SyncerFactory::create(req.into_inner())?;
-    remote::force_push(syncer, post_id, state.pool.clone()).await?;
+    remote::force_push(
+        syncer,
+        post_id,
+        state.pool.clone(),
+        state.mongodb_database.clone(),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
 }
 
