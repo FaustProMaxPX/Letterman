@@ -14,6 +14,7 @@ use actix_web::{
 };
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 
+use mongodb::options::ClientOptions;
 use r2d2::Pool;
 use routes::{
     common::ping,
@@ -31,6 +32,15 @@ pub fn database_pool() -> Result<Pool<ConnectionManager<MysqlConnection>>> {
     Ok(pool)
 }
 
+pub async fn mongodb_database() -> Result<mongodb::Database> {
+    let uri = env::var("MONGODB_CONNECT_STRING").expect("MONGODB_CONNECT_STRING must be set");
+    let mut options = ClientOptions::parse(uri).await?;
+    options.max_pool_size = Some(20);
+    options.min_pool_size = Some(5);
+    let client = mongodb::Client::with_options(options)?;
+    Ok(client.database("letterman"))
+}
+
 fn init_logger() {
     std::env::set_var("RUST_LOG", "info");
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -39,6 +49,7 @@ fn init_logger() {
 
 struct State {
     pub pool: Pool<ConnectionManager<MysqlConnection>>,
+    pub mongodb_database: mongodb::Database,
 }
 
 #[actix_web::main]
@@ -46,8 +57,13 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     init_logger();
     let pool = database_pool()?;
+    let mongodb_databse = mongodb_database().await?;
+
     HttpServer::new(move || {
-        let state = State { pool: pool.clone() };
+        let state = State {
+            pool: pool.clone(),
+            mongodb_database: mongodb_databse.clone(),
+        };
 
         App::new()
             .app_data(Data::new(state))

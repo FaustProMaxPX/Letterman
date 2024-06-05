@@ -65,3 +65,29 @@ pub trait DbAction {
         result.boxed()
     }
 }
+
+#[derive(Debug, Error)]
+pub enum MongoActionError<E> {
+    #[error("Database error: {0}")]
+    Error(#[source] E),
+    #[error("Pool error: {0}")]
+    Pool(mongodb::error::Error),
+}
+
+pub trait MongoAction {
+    type Item: Send + 'static;
+    type Error: std::error::Error + Send;
+
+    fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error>;
+
+    fn execute(
+        self,
+        db: mongodb::Database,
+    ) -> BoxFuture<'static, Result<Self::Item, MongoActionError<Self::Error>>>
+    where
+        Self: std::marker::Sized + Send + 'static,
+    {
+        let result = async move { self.mongo_action(db).map_err(MongoActionError::Error) };
+        Box::pin(result)
+    }
+}
