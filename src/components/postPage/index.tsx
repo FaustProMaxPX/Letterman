@@ -1,3 +1,5 @@
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import {
   Box,
   Button,
@@ -7,15 +9,13 @@ import {
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { createContext, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../../constants";
+import useMessage from "../../hooks/useMessage";
 import { deletePost, getPostPage } from "../../services/postsService";
+import { formatErrorMessage } from "../../services/utils/transform-response";
 import { EMPTY_PAGE, Page, Post } from "../../types";
 import { formatDate } from "../../utils/time-util";
-import useMessage from "../../hooks/useMessage";
-import { formatErrorMessage } from "../../services/utils/transform-response";
-import { useNavigate } from "react-router-dom";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface GridContextProps {
@@ -32,12 +32,14 @@ const columns: GridColDef[] = [
     headerName: "标题",
     headerAlign: "center",
     minWidth: 200,
+    align: "center",
   },
   {
     field: "content",
     headerName: "内容",
     headerAlign: "center",
     minWidth: 400,
+    align: "center",
   },
   // {
   //   field: "metadata",
@@ -49,12 +51,14 @@ const columns: GridColDef[] = [
     headerName: "版本",
     headerAlign: "center",
     minWidth: 100,
+    align: "center",
   },
   {
     field: "createTime",
     headerName: "创建时间",
     headerAlign: "center",
     minWidth: 200,
+    align: "center",
     valueFormatter: (params: Date) => {
       return formatDate(params);
     },
@@ -64,6 +68,7 @@ const columns: GridColDef[] = [
     headerName: "...",
     headerAlign: "center",
     minWidth: 100,
+    align: "center",
     renderCell: (params) => <OptionCell id={params.row.id} />,
   },
 ];
@@ -244,6 +249,7 @@ export const PostPage = () => {
                 message.error(formatErrorMessage(error));
               });
           }}
+          sx={{ justifyContent: "center" }}
         />
       </Box>
     </GridContext.Provider>
