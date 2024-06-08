@@ -3,14 +3,14 @@ use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
 
 use crate::operations::posts::{
-    PostCreator, PostDeleter, PostPageQueryer, PostQueryer, PostUpdater,
+    PostCreator, PostDeleter, PostPageQueryer, PostQueryer, PostSyncRecordQueryer, PostUpdater,
 };
 use crate::operations::remote;
 use crate::operations::remote::factory::SyncerFactory;
-use crate::operations::remote::types::{SyncError, SyncReq};
-use crate::traits::{DbAction, DbActionError, Validate};
+use crate::operations::remote::types::SyncError;
+use crate::traits::{DbAction, DbActionError, MongoAction, MongoActionError, Validate};
 use crate::types::posts::{
-    CreatePostError, DeletePostError, PostPageReq, QueryPostError, UpdatePostError, UpdatePostReq,
+    CreatePostError, DeletePostError, PostPageReq, QueryPostError, QuerySyncRecordError, SyncPageReq, SyncReq, UpdatePostError, UpdatePostReq
 };
 use crate::types::PageValidationError;
 use crate::{
@@ -33,6 +33,8 @@ pub enum PostResponseError {
     Database,
     #[error("Pool Error")]
     Pool(#[source] r2d2::Error),
+    #[error("Pool Error")]
+    MongoPool(#[source] mongodb::error::Error),
     #[error("Request canceled")]
     Canceled,
     #[error("Post not found")]
@@ -142,6 +144,19 @@ pub(crate) async fn force_push(
     )
     .await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
+pub(crate) async fn get_sync_records(
+    state: Data<State>,
+    post_id: Path<i64>,
+    req: Query<SyncPageReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let post_id = post_id.into_inner();
+    let req = req.into_inner().validate()?;
+    let page = PostSyncRecordQueryer(post_id, req.page, req.page_size, req.platform)
+        .execute(state.mongodb_database.clone())
+        .await?;
+    Ok(HttpResponse::Ok().json(CommonResult::success_with_data(page)))
 }
 
 impl ResponseError for PostResponseError {
@@ -261,6 +276,23 @@ impl From<SyncError> for PostResponseError {
             SyncError::NetworkError(e) => PostResponseError::Other(e),
             SyncError::Decode => PostResponseError::Other(item.to_string()),
             SyncError::Other(e) => PostResponseError::Other(e),
+        }
+    }
+}
+
+impl From<MongoActionError<QuerySyncRecordError>> for PostResponseError {
+    fn from(item: MongoActionError<QuerySyncRecordError>) -> Self {
+        match item {
+            MongoActionError::Pool(e) => PostResponseError::MongoPool(e),
+            MongoActionError::Error(e) => e.into(),
+        }
+    }
+}
+
+impl From<QuerySyncRecordError> for PostResponseError {
+    fn from(item: QuerySyncRecordError) -> Self {
+        match item {
+            QuerySyncRecordError::Database(_) => PostResponseError::Database,
         }
     }
 }

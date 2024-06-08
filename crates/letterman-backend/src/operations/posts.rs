@@ -1,22 +1,24 @@
+use async_trait::async_trait;
 use diesel::{
     BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl, RunQueryDsl,
 };
+use mongodb::{bson::doc, options::FindOptions, Cursor};
 
 use crate::{
     schema::{self, t_post_content},
-    traits::DbAction,
+    traits::{DbAction, MongoAction},
     types::{
         posts::{
             BasePost, CreatePostError, DeletePostError, InsertableBasePost, InsertablePostContent,
-            Post, PostContent, PostPageReq, QueryPostError, UpdatePostError, ValidatedPostCreation,
-            ValidatedPostUpdate,
+            Post, PostContent, PostPageReq, QueryPostError, QuerySyncRecordError, SyncRecord,
+            UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
         },
-        Page,
+        Page, Platform,
     },
-    utils::Snowflake,
+    utils::{self, Snowflake},
 };
 
-use super::pagination::Paginate;
+use super::{constants, pagination::Paginate};
 
 pub struct PostCreator(pub ValidatedPostCreation);
 
@@ -242,10 +244,44 @@ impl DbAction for LatestPostQueryerByPostId {
     }
 }
 
+pub struct PostSyncRecordQueryer(pub i64, pub i32, pub i32, pub Platform);
+
+#[async_trait]
+impl MongoAction for PostSyncRecordQueryer {
+    type Item = Page<SyncRecord>;
+
+    type Error = QuerySyncRecordError;
+
+    async fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error> {
+        let filter = doc! {"post_id": self.0, "platform": self.3.to_string()};
+
+        let skip = (self.1 - 1) * self.2;
+        let cursor: Cursor<SyncRecord> = db
+            .collection(constants::SYNC_RECORDS_COLLECTION)
+            .find(
+                filter.clone(),
+                FindOptions::builder()
+                    .skip(skip as u64)
+                    .limit(self.2 as i64)
+                    .build(),
+            )
+            .await?;
+        // TODO: 这里的操作不是原子性的
+        let total = db
+            .collection::<SyncRecord>(constants::SYNC_RECORDS_COLLECTION)
+            .count_documents(filter.clone(), None)
+            .await?;
+        let records = utils::mongo_utils::to_vec(cursor).await;
+        let len = records.len() as i32;
+
+        Ok(Page::new(total as i32, self.1, records, len))
+    }
+}
+
 #[cfg(test)]
 mod post_db_test {
 
-    use crate::database_pool;
+    use crate::{database_pool, mongodb_database};
 
     use super::*;
 
@@ -271,5 +307,15 @@ mod post_db_test {
         .await
         .unwrap();
         println!("{:#?}", resp);
+    }
+
+    #[actix_rt::test]
+    async fn query_sync_record_test() {
+        dotenv::dotenv().ok();
+        let db = mongodb_database().await.unwrap();
+        let page = PostSyncRecordQueryer(1, 1, 10, Platform::Github)
+            .execute(db)
+            .await;
+        assert!(page.is_ok());
     }
 }

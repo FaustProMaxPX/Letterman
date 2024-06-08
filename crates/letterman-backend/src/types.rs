@@ -1,5 +1,10 @@
-use std::collections::HashMap;
+use core::fmt;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
+use mongodb::bson::Bson;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
@@ -131,4 +136,25 @@ where
 {
     let value = serde_json::to_value(x).map_err(serde::ser::Error::custom)?;
     value.serialize(s)
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum Platform {
+    Github,
+}
+
+impl Display for Platform {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Platform::Github => write!(f, "Github"),
+        }
+    }
+}
+
+impl From<Platform> for Bson {
+    fn from(item: Platform) -> Self {
+        match item {
+            Platform::Github => Bson::String("Github".to_string()),
+        }
+    }
 }

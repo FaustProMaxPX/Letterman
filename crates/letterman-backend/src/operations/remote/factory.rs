@@ -1,8 +1,6 @@
-use super::{
-    github::GithubSyncer,
-    types::{SyncError, SyncReq},
-    SyncAction,
-};
+use crate::types::posts::SyncReq;
+
+use super::{github::GithubSyncer, types::SyncError, SyncAction};
 
 #[derive(Debug, Default)]
 pub struct SyncerFactory;

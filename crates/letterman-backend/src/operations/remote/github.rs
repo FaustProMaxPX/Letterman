@@ -17,7 +17,7 @@ use crate::{
         },
         posts::Post,
     },
-    utils::{Snowflake, TimeUtil},
+    utils::{self, Snowflake},
 };
 
 use super::{
@@ -134,8 +134,8 @@ impl SyncAction for GithubSyncer {
             res.content,
             post.version() + 1,
             post.version(),
-            TimeUtil::now(),
-            TimeUtil::now(),
+            utils::time_utils::now(),
+            utils::time_utils::now(),
         );
 
         Ok(Some(post))

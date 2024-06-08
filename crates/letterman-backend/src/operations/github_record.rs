@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use futures::StreamExt;
 use mongodb::{bson::doc, Cursor};
 
 use crate::{
     traits::{DocumentConvert, MongoAction},
     types::github_record::{GithubRecord, InsertableGithubRecord, QueryGithubRecordError},
+    utils,
 };
 
 use super::{constants, remote::github::CreateGithubRecordError};
@@ -23,19 +23,7 @@ impl MongoAction for GithubRecordQueryerByPostId {
             .collection(constants::SYNC_RECORDS_COLLECTION)
             .find(filter, None)
             .await?;
-        let records = cursor
-            .filter_map(|doc| async {
-                match doc {
-                    Ok(doc) => Some(doc),
-                    Err(_) => {
-                        eprintln!("error: {:?}", doc);
-                        None
-                    }
-                }
-            })
-            .collect()
-            .await;
-        Ok(records)
+        Ok(utils::mongo_utils::to_vec(cursor).await)
     }
 }
 
@@ -89,6 +77,15 @@ mod github_record_test {
             String::from("url"),
         );
         let res = GithubRecordCreator(record).execute(db.clone()).await;
+        assert!(res.is_ok());
+    }
+
+    #[actix_web::test]
+    async fn query_test() {
+        dotenv::dotenv().ok();
+        let db = mongodb_database().await.unwrap();
+        let _pool = database_pool().unwrap();
+        let res = GithubRecordQueryerByPostId(1).execute(db.clone()).await;
         assert!(res.is_ok());
     }
 }

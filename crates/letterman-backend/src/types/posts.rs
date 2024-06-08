@@ -6,7 +6,7 @@ use std::{
 use crate::{
     routes::posts::PostResponseError,
     traits::Validate,
-    utils::{Snowflake, TimeUtil},
+    utils::{self, Snowflake},
 };
 use chrono::NaiveDateTime;
 use diesel::{deserialize::Queryable, prelude::Insertable, Selectable};
@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
-    deserialize_from_string, serialize_as_string, serialize_metadata, PageValidationError,
+    deserialize_from_string, github_record::GithubRecord, serialize_as_string, serialize_metadata,
+    PageValidationError, Platform,
 };
 
 use thiserror::Error;
@@ -133,8 +134,8 @@ impl From<(InsertableBasePost, InsertablePostContent)> for Post {
             content: content.content,
             version: base.version,
             pre_version: base.prev_version,
-            create_time: TimeUtil::now(),
-            update_time: TimeUtil::now(),
+            create_time: utils::time_utils::now(),
+            update_time: utils::time_utils::now(),
         }
     }
 }
@@ -456,5 +457,76 @@ impl Validate for PostPageReq {
             });
         }
         Ok(self)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "platform", content = "details")]
+pub enum SyncReq {
+    Github(GithubSyncReq),
+}
+
+#[derive(Debug, Deserialize)]
+
+pub struct GithubSyncReq {
+    path: Option<String>,
+    repository: Option<String>,
+}
+
+impl GithubSyncReq {
+    pub fn path(&self) -> Option<String> {
+        self.path.clone()
+    }
+
+    pub fn repository(&self) -> Option<String> {
+        self.repository.clone()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncPageReq {
+    pub page: i32,
+    pub page_size: i32,
+    pub platform: Platform,
+}
+
+impl Validate for SyncPageReq {
+    type Item = SyncPageReq;
+
+    type Error = PageValidationError;
+
+    fn validate(self) -> Result<Self::Item, Self::Error> {
+        if self.page <= 0 {
+            return Err(PageValidationError {
+                field: "page",
+                msg: "page must be greater than 0",
+            });
+        };
+        if self.page_size <= 0 {
+            return Err(PageValidationError {
+                field: "page_size",
+                msg: "page_size must be greater than 0",
+            });
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "platform")]
+pub enum SyncRecord {
+    Github(GithubRecord),
+}
+
+#[derive(Debug, Error)]
+pub enum QuerySyncRecordError {
+    #[error("Database Error: {0}")]
+    Database(#[source] mongodb::error::Error),
+}
+
+impl From<mongodb::error::Error> for QuerySyncRecordError {
+    fn from(item: mongodb::error::Error) -> Self {
+        QuerySyncRecordError::Database(item)
     }
 }

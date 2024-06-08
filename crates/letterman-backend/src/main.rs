@@ -18,7 +18,10 @@ use mongodb::options::ClientOptions;
 use r2d2::Pool;
 use routes::{
     common::ping,
-    posts::{create, delete_post, force_pull, force_push, get_list, get_post, synchronize, update},
+    posts::{
+        create, delete_post, force_pull, force_push, get_list, get_post, get_sync_records,
+        synchronize, update,
+    },
 };
 
 extern crate snowflake;
@@ -90,7 +93,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         scope("sync/{post_id}")
                             .service(resource("synchronize").route(put().to(synchronize)))
                             .service(resource("push").route(put().to(force_push)))
-                            .service(resource("pull").route(put().to(force_pull))),
+                            .service(resource("pull").route(put().to(force_pull)))
+                            .service(resource("/records").route(get().to(get_sync_records))),
                     ),
             )
             .service(ping)

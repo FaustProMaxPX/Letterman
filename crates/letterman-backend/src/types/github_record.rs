@@ -1,34 +1,23 @@
 use std::string::FromUtf8Error;
 
 use base64::Engine;
-use chrono::NaiveDateTime;
-use mongodb::bson::doc;
+use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{operations::remote::types::SyncError, traits::DocumentConvert};
+use crate::{operations::remote::types::SyncError, traits::DocumentConvert, types::Platform};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GithubRecord {
-    id: i32,
     post_id: i64,
     version: i32,
     path: String,
     sha: String,
     repository: String,
     url: String,
-    create_time: NaiveDateTime,
-    update_time: NaiveDateTime,
 }
 
 impl GithubRecord {
-    pub fn update_time(&self) -> NaiveDateTime {
-        self.update_time
-    }
-
-    pub fn id(&self) -> i32 {
-        self.id
-    }
 
     pub fn post_id(&self) -> i64 {
         self.post_id
@@ -54,9 +43,6 @@ impl GithubRecord {
         &self.url
     }
 
-    pub fn create_time(&self) -> NaiveDateTime {
-        self.create_time
-    }
 }
 
 pub struct InsertableGithubRecord {
@@ -76,7 +62,8 @@ impl DocumentConvert for InsertableGithubRecord {
             "path": self.path,
             "sha": self.sha,
             "repository": self.repository,
-            "url": self.url
+            "url": self.url,
+            "platform": Bson::from(Platform::Github)
         }
     }
 }

@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
@@ -12,28 +11,7 @@ use crate::{
     types::posts::{CreatePostError, QueryPostError},
 };
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "platform", content = "details")]
-pub enum SyncReq {
-    Github(GithubSyncReq),
-}
 
-#[derive(Debug, Deserialize)]
-
-pub struct GithubSyncReq {
-    path: Option<String>,
-    repository: Option<String>,
-}
-
-impl GithubSyncReq {
-    pub fn path(&self) -> Option<String> {
-        self.path.clone()
-    }
-
-    pub fn repository(&self) -> Option<String> {
-        self.repository.clone()
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct Context {
