@@ -17,7 +17,7 @@ use crate::{
         },
         posts::Post,
     },
-    utils::{self, Snowflake},
+    utils::{self},
 };
 
 use super::{
@@ -123,7 +123,7 @@ impl SyncAction for GithubSyncer {
 
         let res = extract(&content.unwrap().content)?;
         let post = Post::new(
-            Snowflake::next_id(),
+            utils::snowflake::next_id(),
             post.post_id(),
             if let Some(title) = res.title {
                 title

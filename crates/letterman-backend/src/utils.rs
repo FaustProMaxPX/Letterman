@@ -1,16 +1,14 @@
-use std::sync::Mutex;
+pub mod snowflake {
 
-use lazy_static::lazy_static;
+    use std::sync::Mutex;
 
-use snowflake::SnowflakeIdGenerator;
+    use lazy_static::lazy_static;
+    use snowflake::SnowflakeIdGenerator;
 
-lazy_static! {
-    static ref ID_GENERATOR: Mutex<SnowflakeIdGenerator> =
-        Mutex::new(SnowflakeIdGenerator::new(1, 1));
-}
-
-pub struct Snowflake;
-impl Snowflake {
+    lazy_static! {
+        static ref ID_GENERATOR: Mutex<SnowflakeIdGenerator> =
+            Mutex::new(SnowflakeIdGenerator::new(1, 1));
+    }
     pub fn next_id() -> i64 {
         let mut gen = ID_GENERATOR.lock().unwrap();
         gen.real_time_generate()

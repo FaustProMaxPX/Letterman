@@ -1,11 +1,14 @@
 use std::string::FromUtf8Error;
 
 use base64::Engine;
-use mongodb::bson::{doc, Bson};
-use serde::{Deserialize, Serialize};
+use chrono::NaiveDateTime;
+use mongodb::bson::{doc, Bson, DateTime};
+use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
-use crate::{operations::remote::types::SyncError, traits::DocumentConvert, types::Platform};
+use crate::{
+    operations::remote::types::SyncError, traits::DocumentConvert, types::Platform, utils,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GithubRecord {
@@ -15,10 +18,13 @@ pub struct GithubRecord {
     sha: String,
     repository: String,
     url: String,
+    #[serde(deserialize_with = "naive_date_time_from_bson_datetime")]
+    create_time: NaiveDateTime,
+    #[serde(deserialize_with = "naive_date_time_from_bson_datetime")]
+    update_time: NaiveDateTime,
 }
 
 impl GithubRecord {
-
     pub fn post_id(&self) -> i64 {
         self.post_id
     }
@@ -42,7 +48,6 @@ impl GithubRecord {
     pub fn url(&self) -> &str {
         &self.url
     }
-
 }
 
 pub struct InsertableGithubRecord {
@@ -52,6 +57,8 @@ pub struct InsertableGithubRecord {
     pub sha: String,
     pub repository: String,
     pub url: String,
+    pub create_time: NaiveDateTime,
+    pub update_time: NaiveDateTime,
 }
 
 impl DocumentConvert for InsertableGithubRecord {
@@ -63,7 +70,9 @@ impl DocumentConvert for InsertableGithubRecord {
             "sha": self.sha,
             "repository": self.repository,
             "url": self.url,
-            "platform": Bson::from(Platform::Github)
+            "platform": Bson::from(Platform::Github),
+            "create_time": DateTime::from_millis(self.create_time.and_utc().timestamp_millis()),
+            "update_time": DateTime::from_millis(self.update_time.and_utc().timestamp_millis()),
         }
     }
 }
@@ -84,6 +93,8 @@ impl InsertableGithubRecord {
             sha,
             repository,
             url,
+            create_time: utils::time_utils::now(),
+            update_time: utils::time_utils::now(),
         }
     }
 }
@@ -203,4 +214,12 @@ pub enum QueryGithubRecordError {
     Database(#[source] mongodb::error::Error),
     #[error("Post not found")]
     NotFound,
+}
+
+fn naive_date_time_from_bson_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let dt = DateTime::deserialize(deserializer)?;
+    Ok(dt.to_chrono().naive_local())
 }

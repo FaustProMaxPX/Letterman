@@ -15,7 +15,7 @@ use crate::{
         },
         Page, Platform,
     },
-    utils::{self, Snowflake},
+    utils::{self},
 };
 
 use super::{constants, pagination::Paginate};
@@ -136,7 +136,7 @@ impl DbAction for PostUpdater {
         }
         let new_version = prev.version + 1;
         let base = InsertableBasePost {
-            id: Snowflake::next_id(),
+            id: utils::snowflake::next_id(),
             post_id: prev.post_id,
             title: self.0.title,
             metadata: self.0.metadata,
@@ -144,7 +144,7 @@ impl DbAction for PostUpdater {
             prev_version: prev.version,
         };
         let content = InsertablePostContent {
-            id: Snowflake::next_id(),
+            id: utils::snowflake::next_id(),
             post_id: prev.post_id,
             version: new_version,
             content: self.0.content,

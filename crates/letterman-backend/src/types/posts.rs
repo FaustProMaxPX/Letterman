@@ -6,7 +6,7 @@ use std::{
 use crate::{
     routes::posts::PostResponseError,
     traits::Validate,
-    utils::{self, Snowflake},
+    utils::{self},
 };
 use chrono::NaiveDateTime;
 use diesel::{deserialize::Queryable, prelude::Insertable, Selectable};
@@ -101,7 +101,7 @@ impl Post {
 
     pub fn to_po(self) -> (InsertableBasePost, InsertablePostContent) {
         let base = InsertableBasePost {
-            id: Snowflake::next_id(),
+            id: utils::snowflake::next_id(),
             post_id: self.post_id,
             title: self.title,
             metadata: serde_json::to_string(&self.metadata).unwrap(),
@@ -109,7 +109,7 @@ impl Post {
             prev_version: self.pre_version,
         };
         let content = InsertablePostContent {
-            id: Snowflake::next_id(),
+            id: utils::snowflake::next_id(),
             post_id: self.post_id,
             version: self.version,
             content: self.content,
@@ -345,8 +345,8 @@ pub struct ValidatedPostCreation {
 impl ValidatedPostCreation {
     pub fn to_post_po(self) -> (InsertableBasePost, InsertablePostContent) {
         let post = InsertableBasePost {
-            id: Snowflake::next_id(),
-            post_id: Snowflake::next_id(),
+            id: utils::snowflake::next_id(),
+            post_id: utils::snowflake::next_id(),
             title: self.title,
             metadata: self.metadata,
             version: 1,
@@ -354,7 +354,7 @@ impl ValidatedPostCreation {
         };
 
         let content = InsertablePostContent {
-            id: Snowflake::next_id(),
+            id: utils::snowflake::next_id(),
             post_id: post.post_id,
             version: 1,
             content: self.content,
@@ -461,7 +461,7 @@ impl Validate for PostPageReq {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "platform", content = "details")]
+#[serde(tag = "platform")]
 pub enum SyncReq {
     Github(GithubSyncReq),
 }
