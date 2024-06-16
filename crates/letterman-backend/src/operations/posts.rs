@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use diesel::{
     BoolExpressionMethods, Connection, ExpressionMethods, MysqlConnection, QueryDsl, RunQueryDsl,
@@ -189,6 +191,48 @@ impl DbAction for PostQueryer {
             )
             .first(conn)?;
         Ok(Post::package(post, content))
+    }
+}
+
+pub struct BatchPostQueryerByPostIdAndVersion(pub Vec<(i64, i32)>);
+
+impl DbAction for BatchPostQueryerByPostIdAndVersion {
+    type Item = HashMap<(i64, i32), Post>;
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        let list: Vec<BasePost> = self
+            .0
+            .iter()
+            .fold(t_post.into_boxed(), |query, p| {
+                query.or_filter(post_id.eq(p.0).and(version.eq(p.1)))
+            })
+            .load(conn)?;
+        let query = list
+            .iter()
+            .fold(t_post_content::table.into_boxed(), |query, p| {
+                query.or_filter(
+                    t_post_content::post_id
+                        .eq(p.post_id)
+                        .and(t_post_content::version.eq(p.version)),
+                )
+            });
+        let contents: Vec<PostContent> = query.load(conn)?;
+        let contents_map = contents
+            .into_iter()
+            .map(|c| ((c.post_id, c.version), c))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        let ret: HashMap<(i64, i32), Post> = list
+            .into_iter()
+            .map(|p| {
+                let content = contents_map.get(&(p.post_id, p.version)).unwrap();
+                Post::package(p, content.clone())
+            })
+            .map(|p| ((p.post_id(), p.version()), p))
+            .collect();
+        Ok(ret)
     }
 }
 

@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .service(resource("synchronize").route(put().to(synchronize)))
                             .service(resource("push").route(put().to(force_push)))
                             .service(resource("pull").route(put().to(force_pull)))
-                            .service(resource("/records").route(get().to(get_sync_records))),
+                            .service(resource("records").route(get().to(get_sync_records))),
                     ),
             )
             .service(ping)

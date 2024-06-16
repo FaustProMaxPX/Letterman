@@ -9,6 +9,7 @@ export const DEFAULT_PAGE_SIZE = 7;
 export const BREADCRUMB_NAME_MAP: { [key: string]: string } = {
   "/": "Home",
   "/posts": "Posts",
+  "/posts/sync/:id": "Sync",
   "/posts/:id": "Edit",
   "/posts/new": "New",
 };

@@ -1,5 +1,6 @@
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import SyncIcon from "@mui/icons-material/Sync";
 import {
   Box,
   Button,
@@ -67,7 +68,7 @@ const columns: GridColDef[] = [
     field: "...",
     headerName: "...",
     headerAlign: "center",
-    minWidth: 100,
+    flex: 1,
     align: "center",
     renderCell: (params) => <OptionCell id={params.row.id} />,
   },
@@ -100,8 +101,10 @@ const OptionCell = ({ id }: { id: string }) => {
     <Box
       sx={{
         display: "flex",
-        alignItems: "center",
         height: "100%",
+        flexGrow: 1,
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <NavIconButton aria-label="edit" color="primary" path={`/posts/${id}`}>
@@ -145,6 +148,9 @@ const OptionCell = ({ id }: { id: string }) => {
         title={"删除文章"}
         content={"确定要删除这篇文章吗?"}
       />
+      <NavIconButton aria-label="sync" path={`/posts/sync/${id}`}>
+        <SyncIcon />
+      </NavIconButton>
     </Box>
   );
 };

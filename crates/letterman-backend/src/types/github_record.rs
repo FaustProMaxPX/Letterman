@@ -10,6 +10,8 @@ use crate::{
     operations::remote::types::SyncError, traits::DocumentConvert, types::Platform, utils,
 };
 
+use super::posts::Post;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GithubRecord {
     post_id: i64,
@@ -47,6 +49,30 @@ impl GithubRecord {
 
     pub fn url(&self) -> &str {
         &self.url
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubRecordVO {
+    post: Post,
+    path: String,
+    repository: String,
+    url: String,
+    create_time: NaiveDateTime,
+    update_time: NaiveDateTime,
+}
+
+impl GithubRecordVO {
+    pub fn package(record: GithubRecord, post: Post) -> Self {
+        Self {
+            post,
+            path: record.path,
+            repository: record.repository,
+            url: record.url,
+            create_time: record.create_time,
+            update_time: record.update_time,
+        }
     }
 }
 

@@ -15,13 +15,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
-    deserialize_from_string, github_record::GithubRecord, serialize_as_string, serialize_metadata,
-    PageValidationError, Platform,
+    deserialize_from_string,
+    github_record::{GithubRecord, GithubRecordVO},
+    serialize_as_string, serialize_metadata, PageValidationError, Platform,
 };
 
 use thiserror::Error;
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Post {
     #[serde(
@@ -517,6 +518,11 @@ impl Validate for SyncPageReq {
 #[serde(tag = "platform")]
 pub enum SyncRecord {
     Github(GithubRecord),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum SyncRecordVO {
+    Github(GithubRecordVO),
 }
 
 #[derive(Debug, Error)]

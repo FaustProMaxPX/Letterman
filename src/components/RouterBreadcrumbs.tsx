@@ -1,7 +1,6 @@
 import { Breadcrumbs, Link, LinkProps, Typography } from "@mui/material";
-import { useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { BREADCRUMB_NAME_MAP } from "../constants";
-import { Link as RouterLink } from "react-router-dom";
 
 interface LinkRouterProps extends LinkProps {
   to: string;
@@ -14,13 +13,19 @@ const LinkRouter = (props: LinkRouterProps) => {
 
 const getBreadcrumbName = (to: string) => {
   const pathNames = Object.keys(BREADCRUMB_NAME_MAP);
+  console.log("to", to);
+  
   for (const path of pathNames) {
     if (path == to) {
       return BREADCRUMB_NAME_MAP[path];
     }
     const match = path.match(/\/:([^/]+)/);
     const segment = path.split("/:")[0];
+    console.log(match);
+    
     if (match && to.startsWith(segment)) {
+      console.log(BREADCRUMB_NAME_MAP[path]);
+
       return BREADCRUMB_NAME_MAP[path];
     }
   }
@@ -39,7 +44,7 @@ export const RouterBreadcurmbs = () => {
       {pathnames.map((_value, index) => {
         const last = index === pathnames.length - 1;
         const to = `/${pathnames.slice(0, index + 1).join("/")}`;
-
+        
         return last ? (
           <Typography color="text.primary" key={to}>
             {getBreadcrumbName(to)}

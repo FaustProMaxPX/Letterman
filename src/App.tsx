@@ -17,12 +17,13 @@ import { useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Notification from "./components/Notification";
+import { RouterBreadcurmbs } from "./components/RouterBreadcrumbs";
 import { Dashboard } from "./components/dashboard";
 import { ErrorDisplay } from "./components/errorPage";
 import { PostForm } from "./components/postForm";
 import { PostPage } from "./components/postPage";
 import { mainListItems } from "./listItems";
-import { RouterBreadcurmbs } from "./components/RouterBreadcrumbs";
+import { SyncPage } from "./components/syncPage";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
@@ -149,6 +150,7 @@ const App = () => {
                   <Route path="/posts" element={<PostPage />} />
                   <Route path="/posts/:id" element={<PostForm />} />
                   <Route path="/posts/new" element={<PostForm />} />
+                  <Route path="/posts/sync/:id" element={<SyncPage />} />
                 </Routes>
               </ErrorBoundary>
             </Container>

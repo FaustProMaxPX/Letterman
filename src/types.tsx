@@ -31,3 +31,19 @@ export interface CommonResult<T> {
   message: string;
   data: T;
 }
+
+export interface BaseSyncRecord {
+  post: Post;
+  platform: Platform;
+  url: string;
+  createTime: Date;
+}
+
+export interface GithubSyncRecord extends BaseSyncRecord {
+  repository: string;
+  path: string;
+}
+
+export enum Platform {
+  Github,
+}

@@ -3,16 +3,19 @@ use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
 
 use crate::operations::posts::{
-    PostCreator, PostDeleter, PostPageQueryer, PostQueryer, PostSyncRecordQueryer, PostUpdater,
+    BatchPostQueryerByPostIdAndVersion, PostCreator, PostDeleter, PostPageQueryer, PostQueryer,
+    PostSyncRecordQueryer, PostUpdater,
 };
 use crate::operations::remote;
 use crate::operations::remote::factory::SyncerFactory;
 use crate::operations::remote::types::SyncError;
 use crate::traits::{DbAction, DbActionError, MongoAction, MongoActionError, Validate};
+use crate::types::github_record::GithubRecordVO;
 use crate::types::posts::{
-    CreatePostError, DeletePostError, PostPageReq, QueryPostError, QuerySyncRecordError, SyncPageReq, SyncReq, UpdatePostError, UpdatePostReq
+    CreatePostError, DeletePostError, PostPageReq, QueryPostError, QuerySyncRecordError,
+    SyncPageReq, SyncRecord, SyncRecordVO, SyncReq, UpdatePostError, UpdatePostReq,
 };
-use crate::types::PageValidationError;
+use crate::types::{Page, PageValidationError};
 use crate::{
     types::{posts::CreatePostReq, CommonResult},
     State,
@@ -156,7 +159,35 @@ pub(crate) async fn get_sync_records(
     let page = PostSyncRecordQueryer(post_id, req.page, req.page_size, req.platform)
         .execute(state.mongodb_database.clone())
         .await?;
-    Ok(HttpResponse::Ok().json(CommonResult::success_with_data(page)))
+    let ids: Vec<(i64, i32)> = page
+        .data
+        .iter()
+        .map(|r| match r {
+            SyncRecord::Github(r) => (r.post_id(), r.version()),
+        })
+        .collect();
+    let map = BatchPostQueryerByPostIdAndVersion(ids)
+        .execute(state.pool.clone())
+        .await?;
+    let list: Vec<_> = page
+        .data
+        .into_iter()
+        .map(|p| match p {
+            SyncRecord::Github(p) => {
+                let post = map
+                    .get(&(p.post_id(), p.version()))
+                    .cloned()
+                    .unwrap_or_default();
+                SyncRecordVO::Github(GithubRecordVO::package(p, post.clone()))
+            }
+        })
+        .collect();
+    let len = list.len() as i32;
+    Ok(
+        HttpResponse::Ok().json(CommonResult::success_with_data(Page::new(
+            page.total, req.page, list, len,
+        ))),
+    )
 }
 
 impl ResponseError for PostResponseError {
