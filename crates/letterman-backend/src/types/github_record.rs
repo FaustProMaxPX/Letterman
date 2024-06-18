@@ -3,7 +3,7 @@ use std::string::FromUtf8Error;
 use base64::Engine;
 use chrono::NaiveDateTime;
 use mongodb::bson::{doc, Bson, DateTime};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
 use crate::{
@@ -59,8 +59,11 @@ pub struct GithubRecordVO {
     path: String,
     repository: String,
     url: String,
+    #[serde(serialize_with = "serialize_naive_date_time")]
     create_time: NaiveDateTime,
+    #[serde(serialize_with = "serialize_naive_date_time")]
     update_time: NaiveDateTime,
+    platform: Platform,
 }
 
 impl GithubRecordVO {
@@ -72,6 +75,7 @@ impl GithubRecordVO {
             url: record.url,
             create_time: record.create_time,
             update_time: record.update_time,
+            platform: Platform::Github,
         }
     }
 }
@@ -248,4 +252,11 @@ where
 {
     let dt = DateTime::deserialize(deserializer)?;
     Ok(dt.to_chrono().naive_local())
+}
+
+fn serialize_naive_date_time<S>(time: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(time.format("%Y-%m-%d %H:%M:%S").to_string().as_str())
 }

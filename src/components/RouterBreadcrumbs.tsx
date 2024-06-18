@@ -13,7 +13,6 @@ const LinkRouter = (props: LinkRouterProps) => {
 
 const getBreadcrumbName = (to: string) => {
   const pathNames = Object.keys(BREADCRUMB_NAME_MAP);
-  console.log("to", to);
   
   for (const path of pathNames) {
     if (path == to) {
@@ -21,10 +20,8 @@ const getBreadcrumbName = (to: string) => {
     }
     const match = path.match(/\/:([^/]+)/);
     const segment = path.split("/:")[0];
-    console.log(match);
     
     if (match && to.startsWith(segment)) {
-      console.log(BREADCRUMB_NAME_MAP[path]);
 
       return BREADCRUMB_NAME_MAP[path];
     }

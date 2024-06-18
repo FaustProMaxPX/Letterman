@@ -1,12 +1,12 @@
-import { transformResponse } from "./utils/transform-response";
 import axios from "axios";
-import { CommonResult, Page, Post } from "../types";
 import { BASE_URL } from "../constants";
+import { BaseSyncRecord, CommonResult, Page, Post } from "../types";
 import {
   CreatePostReq,
   QueryPostPageReq,
   UpdatePostReq,
 } from "./requests/posts";
+import { transformResponse } from "./utils/transform-response";
 
 export const getPostPage = async ({
   page,
@@ -53,5 +53,15 @@ export const deletePost = async (id: string) => {
   const data = await axios.delete<CommonResult<null>>(
     `${BASE_URL}/api/post/${id}`
   );
+  return transformResponse(data);
+};
+
+export const getLatestSyncRecords = async (id: string) => {
+  const data = await axios.get<CommonResult<BaseSyncRecord[]>>(
+    `${BASE_URL}/api/post/sync/${id}/records/latest`
+  );
+  data.data.data.forEach((record) => {
+    record.createTime = new Date(record.createTime);
+  });
   return transformResponse(data);
 };

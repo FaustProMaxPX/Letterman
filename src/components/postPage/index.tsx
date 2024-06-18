@@ -70,7 +70,9 @@ const columns: GridColDef[] = [
     headerAlign: "center",
     flex: 1,
     align: "center",
-    renderCell: (params) => <OptionCell id={params.row.id} />,
+    renderCell: (params) => (
+      <OptionCell id={params.row.id} postId={params.row.postId} />
+    ),
   },
 ];
 
@@ -92,7 +94,7 @@ const NavIconButton: React.FC<NavIconButtonProps> = ({
   );
 };
 
-const OptionCell = ({ id }: { id: string }) => {
+const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
   const [open, setOpen] = useState(false);
   const message = useMessage();
   const ctx = useContext(GridContext);
@@ -148,7 +150,7 @@ const OptionCell = ({ id }: { id: string }) => {
         title={"删除文章"}
         content={"确定要删除这篇文章吗?"}
       />
-      <NavIconButton aria-label="sync" path={`/posts/sync/${id}`}>
+      <NavIconButton aria-label="sync" path={`/posts/sync/${postId}`}>
         <SyncIcon />
       </NavIconButton>
     </Box>

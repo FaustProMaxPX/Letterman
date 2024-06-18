@@ -8,38 +8,51 @@ import {
   Link,
   Typography,
 } from "@mui/material";
-import { BaseSyncRecord, GithubSyncRecord, Platform } from "../../types";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import useMessage from "../../hooks/useMessage";
+import { getLatestSyncRecords } from "../../services/postsService";
+import { BaseSyncRecord } from "../../types";
 import { SyncAccordionDetail } from "./SyncAccordionDetails";
+import { formatErrorMessage } from "../../services/utils/transform-response";
 
-const records: BaseSyncRecord[] = [
-  {
-    platform: Platform.Github,
-    createTime: new Date(),
-    url: "https://github.com/xxx",
-    repository: "xxx",
-    path: "xxx",
-    post: {
-      title: "xxx",
-      content: "xxx",
-      metadata: JSON.parse('{"key":"value"}'),
-      version: 0,
-      preVersion: 0,
-      id: "",
-      createTime: new Date(),
-    },
-  } as GithubSyncRecord,
-];
+// const records: BaseSyncRecord[] = [
+//   {
+//     platform: Platform.Github,
+//     createTime: new Date(),
+//     url: "https://github.com/xxx",
+//     repository: "xxx",
+//     path: "xxx",
+//     post: {
+//       title: "xxx",
+//       content: "xxx",
+//       metadata: JSON.parse('{"key":"value"}'),
+//       version: 0,
+//       preVersion: 0,
+//       id: "",
+//       createTime: new Date(),
+//     },
+//   } as GithubSyncRecord,
+// ];
 
 export const SyncPage = () => {
-  // const [record, setRecord] = useState<BaseSyncRecord[]>([]);
-  // useEffect(() => {
-  //   first;
-  
-  //   return () => {
-  //     second;
-  //   };
-  // }, [third]);
-  
+  const params = useParams();
+  const id = params.id;
+  const [records, setRecords] = useState<BaseSyncRecord[]>([]);
+  const message = useMessage();
+  useEffect(() => {
+    if (id !== undefined) {
+      getLatestSyncRecords(id)
+        .then((res) => {
+          console.log(res);
+          
+          setRecords(res);
+        })
+        .catch((err) => {
+          message.error(formatErrorMessage(err));
+        });
+    }
+  }, [id]);
 
   return (
     <Grid container spacing={2}>

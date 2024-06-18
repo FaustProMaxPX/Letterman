@@ -45,5 +45,5 @@ export interface GithubSyncRecord extends BaseSyncRecord {
 }
 
 export enum Platform {
-  Github,
+  Github = "Github",
 }

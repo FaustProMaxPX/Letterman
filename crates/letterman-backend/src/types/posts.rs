@@ -521,6 +521,7 @@ pub enum SyncRecord {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum SyncRecordVO {
     Github(GithubRecordVO),
 }
