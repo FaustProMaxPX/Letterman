@@ -19,8 +19,8 @@ use r2d2::Pool;
 use routes::{
     common::ping,
     posts::{
-        create, delete_post, force_pull, force_push, get_list, get_post, get_sync_records,
-        synchronize, update,
+        create, delete_post, force_pull, force_push, get_latest_sync_records, get_list, get_post,
+        get_sync_records, synchronize, update,
     },
 };
 
@@ -94,7 +94,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .service(resource("synchronize").route(put().to(synchronize)))
                             .service(resource("push").route(put().to(force_push)))
                             .service(resource("pull").route(put().to(force_pull)))
-                            .service(resource("records").route(get().to(get_sync_records))),
+                            .service(resource("records").route(get().to(get_sync_records)))
+                            .service(
+                                resource("records/latest").route(get().to(get_latest_sync_records)),
+                            ),
                     ),
             )
             .service(ping)

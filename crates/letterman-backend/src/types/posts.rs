@@ -529,10 +529,18 @@ pub enum SyncRecordVO {
 pub enum QuerySyncRecordError {
     #[error("Database Error: {0}")]
     Database(#[source] mongodb::error::Error),
+    #[error("Deserialize Error: {0}")]
+    Deserialize(#[source] bson::de::Error),
 }
 
 impl From<mongodb::error::Error> for QuerySyncRecordError {
     fn from(item: mongodb::error::Error) -> Self {
         QuerySyncRecordError::Database(item)
+    }
+}
+
+impl From<bson::de::Error> for QuerySyncRecordError {
+    fn from(item: bson::de::Error) -> Self {
+        QuerySyncRecordError::Deserialize(item)
     }
 }

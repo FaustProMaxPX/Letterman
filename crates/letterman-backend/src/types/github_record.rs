@@ -203,7 +203,7 @@ pub struct WriteContentRespInner {
     pub sha: String,
     pub path: String,
     pub url: String,
-    pub download_url: String,
+    pub html_url: String,
 }
 
 #[derive(Debug, Clone, Error)]

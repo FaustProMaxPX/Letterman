@@ -288,10 +288,10 @@ impl DbAction for LatestPostQueryerByPostId {
     }
 }
 
-pub struct PostSyncRecordQueryer(pub i64, pub i32, pub i32, pub Platform);
+pub struct PagePostSyncRecordQueryer(pub i64, pub i32, pub i32, pub Platform);
 
 #[async_trait]
-impl MongoAction for PostSyncRecordQueryer {
+impl MongoAction for PagePostSyncRecordQueryer {
     type Item = Page<SyncRecord>;
 
     type Error = QuerySyncRecordError;
@@ -319,6 +319,54 @@ impl MongoAction for PostSyncRecordQueryer {
         let len = records.len() as i32;
 
         Ok(Page::new(total as i32, self.1, records, len))
+    }
+}
+
+pub struct PostLatestSyncRecordQueryer(pub i64);
+
+#[async_trait]
+impl MongoAction for PostLatestSyncRecordQueryer {
+    type Item = Vec<SyncRecord>;
+    type Error = QuerySyncRecordError;
+
+    async fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error> {
+        let pipeline = vec![
+            doc! { "$match": {"post_id": self.0}},
+            doc! {"$sort": {"version": -1}},
+            doc! {
+             "$group": {
+                 "_id": "$platform",
+                    "record": {"$first": "$$ROOT"}
+             }
+            },
+        ];
+        let cursor = db
+            .collection::<bson::Document>(constants::SYNC_RECORDS_COLLECTION)
+            .aggregate(pipeline, None)
+            .await?;
+        let records = utils::mongo_utils::to_vec(cursor).await;
+        let records = records
+            .into_iter()
+            .filter_map(|record| match record.get_str("_id").unwrap() {
+                "Github" => {
+                    let record = record.get_document("record").unwrap();
+                    let sync_record: Result<SyncRecord, _> =
+                        bson::from_bson(bson::Bson::Document(record.clone()));
+                    match sync_record {
+                        Ok(r) => Some(r),
+                        Err(e) => {
+                            eprintln!("error: {}", e);
+                            None
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!("unknown platform: {}", record.get_str("_id").unwrap());
+                    None
+                }
+            })
+            .collect();
+        Ok(records)
     }
 }
 
@@ -357,7 +405,7 @@ mod post_db_test {
     async fn query_sync_record_test() {
         dotenv::dotenv().ok();
         let db = mongodb_database().await.unwrap();
-        let page = PostSyncRecordQueryer(1, 1, 10, Platform::Github)
+        let page = PagePostSyncRecordQueryer(1, 1, 10, Platform::Github)
             .execute(db)
             .await;
         assert!(page.is_ok());

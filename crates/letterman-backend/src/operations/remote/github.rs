@@ -64,7 +64,7 @@ impl SyncAction for GithubSyncer {
             resp.content.path,
             resp.content.sha,
             repo.clone(),
-            resp.content.download_url,
+            resp.content.html_url,
         ))
         .execute(mongo_db.clone())
         .await?;
@@ -102,7 +102,7 @@ impl SyncAction for GithubSyncer {
             resp.content.path,
             resp.content.sha,
             record.repository().to_string(),
-            resp.content.download_url,
+            resp.content.html_url,
         ))
         .execute(mongo_db.clone())
         .await?;

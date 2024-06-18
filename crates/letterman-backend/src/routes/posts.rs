@@ -1,10 +1,13 @@
 use actix_web::web::{Data, Json, Path, Query};
 use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
+use diesel::r2d2::ConnectionManager;
+use diesel::MysqlConnection;
+use r2d2::Pool;
 
 use crate::operations::posts::{
-    BatchPostQueryerByPostIdAndVersion, PostCreator, PostDeleter, PostPageQueryer, PostQueryer,
-    PostSyncRecordQueryer, PostUpdater,
+    BatchPostQueryerByPostIdAndVersion, PagePostSyncRecordQueryer, PostCreator, PostDeleter,
+    PostLatestSyncRecordQueryer, PostPageQueryer, PostQueryer, PostUpdater,
 };
 use crate::operations::remote;
 use crate::operations::remote::factory::SyncerFactory;
@@ -156,21 +159,44 @@ pub(crate) async fn get_sync_records(
 ) -> Result<HttpResponse, PostResponseError> {
     let post_id = post_id.into_inner();
     let req = req.into_inner().validate()?;
-    let page = PostSyncRecordQueryer(post_id, req.page, req.page_size, req.platform)
+    let page = PagePostSyncRecordQueryer(post_id, req.page, req.page_size, req.platform)
         .execute(state.mongodb_database.clone())
         .await?;
-    let ids: Vec<(i64, i32)> = page
-        .data
+    let data = convert_sync_records(page.data, state.pool.clone()).await?;
+    let len = data.len() as i32;
+    Ok(
+        HttpResponse::Ok().json(CommonResult::success_with_data(Page::new(
+            page.total, req.page, data, len,
+        ))),
+    )
+}
+
+pub(crate) async fn get_latest_sync_records(
+    state: Data<State>,
+    post_id: Path<i64>,
+) -> Result<HttpResponse, PostResponseError> {
+    let post_id = post_id.into_inner();
+    let list = PostLatestSyncRecordQueryer(post_id)
+        .execute(state.mongodb_database.clone())
+        .await?;
+    let list = convert_sync_records(list, state.pool.clone()).await?;
+    Ok(HttpResponse::Ok().json(CommonResult::success_with_data(list)))
+}
+
+async fn convert_sync_records(
+    data: Vec<SyncRecord>,
+    pool: Pool<ConnectionManager<MysqlConnection>>,
+) -> Result<Vec<SyncRecordVO>, PostResponseError> {
+    let ids: Vec<(i64, i32)> = data
         .iter()
         .map(|r| match r {
             SyncRecord::Github(r) => (r.post_id(), r.version()),
         })
         .collect();
     let map = BatchPostQueryerByPostIdAndVersion(ids)
-        .execute(state.pool.clone())
+        .execute(pool.clone())
         .await?;
-    let list: Vec<_> = page
-        .data
+    let list: Vec<_> = data
         .into_iter()
         .map(|p| match p {
             SyncRecord::Github(p) => {
@@ -182,12 +208,7 @@ pub(crate) async fn get_sync_records(
             }
         })
         .collect();
-    let len = list.len() as i32;
-    Ok(
-        HttpResponse::Ok().json(CommonResult::success_with_data(Page::new(
-            page.total, req.page, list, len,
-        ))),
-    )
+    Ok(list)
 }
 
 impl ResponseError for PostResponseError {
@@ -324,6 +345,9 @@ impl From<QuerySyncRecordError> for PostResponseError {
     fn from(item: QuerySyncRecordError) -> Self {
         match item {
             QuerySyncRecordError::Database(_) => PostResponseError::Database,
+            QuerySyncRecordError::Deserialize(_) => {
+                PostResponseError::Other("System Error".to_string())
+            }
         }
     }
 }
