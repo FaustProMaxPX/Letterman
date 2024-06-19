@@ -2,8 +2,10 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
   AccordionSummary,
+  Box,
   Card,
   CardContent,
+  Chip,
   Grid,
   Link,
   Typography,
@@ -12,28 +14,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import useMessage from "../../hooks/useMessage";
 import { getLatestSyncRecords } from "../../services/postsService";
+import { formatErrorMessage } from "../../services/utils/transform-response";
 import { BaseSyncRecord } from "../../types";
 import { SyncAccordionDetail } from "./SyncAccordionDetails";
-import { formatErrorMessage } from "../../services/utils/transform-response";
-
-// const records: BaseSyncRecord[] = [
-//   {
-//     platform: Platform.Github,
-//     createTime: new Date(),
-//     url: "https://github.com/xxx",
-//     repository: "xxx",
-//     path: "xxx",
-//     post: {
-//       title: "xxx",
-//       content: "xxx",
-//       metadata: JSON.parse('{"key":"value"}'),
-//       version: 0,
-//       preVersion: 0,
-//       id: "",
-//       createTime: new Date(),
-//     },
-//   } as GithubSyncRecord,
-// ];
 
 export const SyncPage = () => {
   const params = useParams();
@@ -45,7 +28,7 @@ export const SyncPage = () => {
       getLatestSyncRecords(id)
         .then((res) => {
           console.log(res);
-          
+
           setRecords(res);
         })
         .catch((err) => {
@@ -73,13 +56,24 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
   const { record } = props;
   return (
     <>
-      <Card>
+      <Typography variant="h5">最近同步记录</Typography>
+      <Card sx={{ mt: 2 }}>
         <CardContent>
-          <Typography gutterBottom variant="h5" component="div">
-            {record.post.title}
+          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Typography gutterBottom variant="h5" component="div">
+              {record.platform}
+            </Typography>
+            <Chip
+              label="查看所有同步记录"
+              component="a"
+              href={`/posts/sync/${record.post.id}/list`}
+              clickable
+            />
+          </Box>
+          <Typography>
+            同步时间：{record.createTime.toLocaleString()}
           </Typography>
-          <Typography>同步时间：{record.platform}</Typography>
-          <Typography>平台：{record.platform}</Typography>
+          <Typography>标题：{record.post.title}</Typography>
           <Link href={record.url}>前往文章</Link>
         </CardContent>
         <Accordion>

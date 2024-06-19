@@ -347,22 +347,15 @@ impl MongoAction for PostLatestSyncRecordQueryer {
         let records = utils::mongo_utils::to_vec(cursor).await;
         let records = records
             .into_iter()
-            .filter_map(|record| match record.get_str("_id").unwrap() {
-                "Github" => {
-                    let record = record.get_document("record").unwrap();
-                    let sync_record: Result<SyncRecord, _> =
-                        bson::from_bson(bson::Bson::Document(record.clone()));
-                    match sync_record {
-                        Ok(r) => Some(r),
-                        Err(e) => {
-                            eprintln!("error: {}", e);
-                            None
-                        }
+            .filter_map(|record| {
+                let record = record.get_document("record").unwrap();
+                let sync_record = bson::from_bson(bson::Bson::Document(record.clone()));
+                match sync_record {
+                    Ok(r) => Some(r),
+                    Err(e) => {
+                        eprintln!("error: {}", e);
+                        None
                     }
-                }
-                _ => {
-                    eprintln!("unknown platform: {}", record.get_str("_id").unwrap());
-                    None
                 }
             })
             .collect();
