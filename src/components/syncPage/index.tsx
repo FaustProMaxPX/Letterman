@@ -17,6 +17,7 @@ import { getLatestSyncRecords } from "../../services/postsService";
 import { formatErrorMessage } from "../../services/utils/transform-response";
 import { BaseSyncRecord } from "../../types";
 import { SyncAccordionDetail } from "./SyncAccordionDetails";
+import { NotFoundDisplay } from "../common/NotFoundDisplay";
 
 export const SyncPage = () => {
   const params = useParams();
@@ -36,6 +37,10 @@ export const SyncPage = () => {
         });
     }
   }, [id]);
+  
+  if (records.length === 0) {
+    return <NotFoundDisplay text="当前文章暂时没有同步记录"/>
+  }
 
   return (
     <Grid container spacing={2}>

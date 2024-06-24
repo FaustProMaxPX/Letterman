@@ -60,6 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_logger();
     let pool = database_pool()?;
     let mongodb_databse = mongodb_database().await?;
+    let host = env::var("HOST").unwrap_or("127.0.0.1".to_string());
+    let port = env::var("PORT").map_or(8080_u16, |v| v.parse::<u16>().unwrap());
 
     HttpServer::new(move || {
         let state = State {
@@ -102,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .service(ping)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((host, port))?
     .run()
     .await
     .map_err(Into::into)
