@@ -1,3 +1,5 @@
+import { Platform } from "./types";
+
 export const BASE_URL = "http://localhost:8080";
 
 export const TIME_DISPLAY_FORMAT = "yyyy-MM-dd HH:mm:ss";
@@ -13,3 +15,5 @@ export const BREADCRUMB_NAME_MAP: { [key: string]: string } = {
   "/posts/:id": "Edit",
   "/posts/new": "New",
 };
+
+export const PLATFORM_SET = [Platform.Github];

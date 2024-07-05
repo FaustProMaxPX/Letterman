@@ -2,6 +2,7 @@ import axios from "axios";
 import { BASE_URL } from "../constants";
 import { BaseSyncRecord, CommonResult, Page, Post } from "../types";
 import {
+  BaseSyncReq,
   CreatePostReq,
   QueryPostPageReq,
   UpdatePostReq,
@@ -63,5 +64,29 @@ export const getLatestSyncRecords = async (id: string) => {
   data.data.data.forEach((record) => {
     record.createTime = new Date(record.createTime);
   });
+  return transformResponse(data);
+};
+
+export const synchronize = async (id: string, req: BaseSyncReq) => {
+  const data = await axios.put<CommonResult<null>>(
+    `${BASE_URL}/api/post/sync/${id}/synchronize`,
+    req
+  );
+  return transformResponse(data);
+};
+
+export const forcePush = async (id: string, req: BaseSyncReq) => {
+  const data = await axios.put<CommonResult<null>>(
+    `${BASE_URL}/api/post/sync/${id}/push`,
+    req
+  );
+  return transformResponse(data);
+};
+
+export const forcePull = async (id: string, req: BaseSyncReq) => {
+  const data = await axios.put<CommonResult<null>>(
+    `${BASE_URL}/api/post/sync/${id}/pull`,
+    req
+  );
   return transformResponse(data);
 };

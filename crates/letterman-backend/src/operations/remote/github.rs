@@ -172,7 +172,11 @@ impl GithubSyncer {
             header::USER_AGENT,
             header::HeaderValue::from_static("letterman"),
         );
-        let token = std::env::var("GITHUB_TOKEN").unwrap();
+        let token = std::env::var("GITHUB_TOKEN");
+        if token.is_err() {
+            return Err(GithubSyncError::NoToken);
+        }
+        let token = token.unwrap();
         header_map.insert(
             header::AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),

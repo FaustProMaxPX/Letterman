@@ -1,6 +1,7 @@
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
+  AccordionDetails,
   AccordionSummary,
   Box,
   Card,
@@ -12,13 +13,14 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { PLATFORM_SET } from "../../constants";
 import useMessage from "../../hooks/useMessage";
 import { getLatestSyncRecords } from "../../services/postsService";
 import { formatErrorMessage } from "../../services/utils/transform-response";
-import { BaseSyncRecord } from "../../types";
+import { BaseSyncRecord, Platform } from "../../types";
 import { LoadingDisplay } from "../common/LoadingDisplay";
-import { NotFoundDisplay } from "../common/NotFoundDisplay";
 import { SyncAccordionDetail } from "./SyncAccordionDetails";
+import { SyncButtonGroup } from "./SyncButtonGroup";
 
 export const SyncPage = () => {
   const params = useParams();
@@ -44,30 +46,60 @@ export const SyncPage = () => {
     return <LoadingDisplay />;
   }
 
-  if (records.length === 0) {
-    return <NotFoundDisplay text="当前文章暂时没有同步记录" />;
-  }
+  // if (records.length === 0) {
+  //   return <NotFoundDisplay text="当前文章暂时没有同步记录" />;
+  // }
+  const recordsMap = new Map(records.map((item) => [item.platform, item]));
 
   return (
-    <Grid container spacing={2}>
-      {records.map((record) => (
-        <Grid item xs={12} sm={6} md={4} key={record.post.id}>
-          <SyncRecordCard record={record} />
-        </Grid>
-      ))}
-    </Grid>
+    <>
+      <Typography variant="h5">最近同步记录</Typography>
+      <Grid container spacing={2}>
+        {PLATFORM_SET.map((platform) => (
+          <Grid item xs={12} sm={6} md={4} key={platform}>
+            <SyncRecordCard
+              id={id || ""}
+              platform={platform}
+              record={recordsMap.get(platform)}
+            />
+          </Grid>
+        ))}
+      </Grid>
+    </>
   );
 };
 
 interface SyncRecordCardProps {
-  record: BaseSyncRecord;
+  id: string;
+  platform: Platform;
+  record?: BaseSyncRecord;
 }
 
 const SyncRecordCard = (props: SyncRecordCardProps) => {
-  const { record } = props;
+  const { platform, record, id } = props;
+  if (record === undefined) {
+    return (
+      <Card sx={{ mt: 2 }}>
+        <CardContent>
+          <Typography gutterBottom variant="h5" component="div">
+            {platform}
+          </Typography>
+          暂无同步记录
+        </CardContent>
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            查看详情
+          </AccordionSummary>
+          <AccordionDetails>
+            暂无同步记录
+            <SyncButtonGroup id={id} platform={platform} />
+          </AccordionDetails>
+        </Accordion>
+      </Card>
+    );
+  }
   return (
     <>
-      <Typography variant="h5">最近同步记录</Typography>
       <Card sx={{ mt: 2 }}>
         <CardContent>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -91,7 +123,10 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             查看详情
           </AccordionSummary>
-          <SyncAccordionDetail {...record} />
+          <AccordionDetails>
+            <SyncAccordionDetail {...record} />
+            <SyncButtonGroup id={id} platform={platform} />
+          </AccordionDetails>
         </Accordion>
       </Card>
     </>
