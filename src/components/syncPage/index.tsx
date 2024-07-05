@@ -16,30 +16,36 @@ import useMessage from "../../hooks/useMessage";
 import { getLatestSyncRecords } from "../../services/postsService";
 import { formatErrorMessage } from "../../services/utils/transform-response";
 import { BaseSyncRecord } from "../../types";
-import { SyncAccordionDetail } from "./SyncAccordionDetails";
+import { LoadingDisplay } from "../common/LoadingDisplay";
 import { NotFoundDisplay } from "../common/NotFoundDisplay";
+import { SyncAccordionDetail } from "./SyncAccordionDetails";
 
 export const SyncPage = () => {
   const params = useParams();
   const id = params.id;
   const [records, setRecords] = useState<BaseSyncRecord[]>([]);
   const message = useMessage();
+  const [loading, setLoading] = useState(false);
   useEffect(() => {
+    setLoading(true);
     if (id !== undefined) {
       getLatestSyncRecords(id)
         .then((res) => {
-          console.log(res);
-
           setRecords(res);
         })
         .catch((err) => {
           message.error(formatErrorMessage(err));
-        });
+        })
+        .finally(() => setLoading(false));
     }
   }, [id]);
-  
+
+  if (loading) {
+    return <LoadingDisplay />;
+  }
+
   if (records.length === 0) {
-    return <NotFoundDisplay text="当前文章暂时没有同步记录"/>
+    return <NotFoundDisplay text="当前文章暂时没有同步记录" />;
   }
 
   return (
