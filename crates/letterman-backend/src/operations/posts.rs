@@ -288,6 +288,58 @@ impl DbAction for LatestPostQueryerByPostId {
     }
 }
 
+pub struct LatestPostQueryerByPostIds(pub Vec<i64>);
+
+impl DbAction for LatestPostQueryerByPostIds {
+    type Item = Vec<Post>;
+
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        let max_versions: Vec<(i64, i32)> = t_post
+            .select(diesel::dsl::sql::<(
+                diesel::sql_types::BigInt,
+                diesel::sql_types::Integer,
+            )>("post_id, MAX(version)"))
+            .filter(post_id.eq_any(self.0))
+            .group_by(post_id)
+            .load(conn)?;
+        let base_posts = max_versions
+            .iter()
+            .fold(t_post.into_boxed(), |query, p| {
+                query.or_filter(post_id.eq(p.0).and(version.eq(p.1)))
+            })
+            .order_by(id.desc())
+            .load::<BasePost>(conn)?;
+        let query = base_posts
+            .iter()
+            .fold(t_post_content::table.into_boxed(), |query, p| {
+                query.or_filter(
+                    t_post_content::post_id
+                        .eq(p.post_id)
+                        .and(t_post_content::version.eq(p.version)),
+                )
+            });
+        let contents: Vec<PostContent> = query.load::<PostContent>(conn)?;
+
+        // convert contents to a map. Key is post_id, value is PostContent
+        let contents_map = contents
+            .into_iter()
+            .map(|c| ((c.post_id, c.version), c))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        let posts = base_posts
+            .into_iter()
+            .map(|p| {
+                let content = contents_map.get(&(p.post_id, p.version)).unwrap();
+                Post::package(p, content.clone())
+            })
+            .collect::<Vec<Post>>();
+        Ok(posts)
+    }
+}
+
 pub struct PagePostSyncRecordQueryer(pub i64, pub i32, pub i32, pub Platform);
 
 #[async_trait]

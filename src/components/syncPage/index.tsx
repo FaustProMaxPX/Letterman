@@ -6,7 +6,6 @@ import {
   Box,
   Card,
   CardContent,
-  Chip,
   Grid,
   Link,
   Typography,
@@ -101,24 +100,25 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
   return (
     <>
       <Card sx={{ mt: 2 }}>
-        <CardContent>
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Typography gutterBottom variant="h5" component="div">
-              {record.platform}
-            </Typography>
-            <Chip
-              label="查看所有同步记录"
-              component="a"
-              href={`/posts/sync/${record.post.id}/list`}
-              clickable
-            />
+        <Box sx={{ display: "flex" }}>
+          <Box sx={{ flex: "1 1 auto" }}>
+            <CardContent>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography gutterBottom variant="h5" component="div">
+                  {record.platform}
+                </Typography>
+              </Box>
+              <Typography>
+                同步时间：{record.createTime.toLocaleString()}
+              </Typography>
+              <Typography>标题：{record.post.title}</Typography>
+              <Link href={record.url}>前往文章</Link>
+            </CardContent>
           </Box>
-          <Typography>
-            同步时间：{record.createTime.toLocaleString()}
-          </Typography>
-          <Typography>标题：{record.post.title}</Typography>
-          <Link href={record.url}>前往文章</Link>
-        </CardContent>
+          <Box sx={{ flex: "0 0 auto" }}>
+            {record.version === record.latestVersion && <img width="50px" height="50px" src="/src/assets/latest.svg" />}
+          </Box>
+        </Box>
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             查看详情

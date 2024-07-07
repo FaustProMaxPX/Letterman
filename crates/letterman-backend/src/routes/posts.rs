@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use actix_web::web::{Data, Json, Path, Query};
 use actix_web::HttpResponse;
 use actix_web::{http::StatusCode, ResponseError};
@@ -6,8 +8,9 @@ use diesel::MysqlConnection;
 use r2d2::Pool;
 
 use crate::operations::posts::{
-    BatchPostQueryerByPostIdAndVersion, PagePostSyncRecordQueryer, PostCreator, PostDeleter,
-    PostLatestSyncRecordQueryer, PostPageQueryer, PostQueryer, PostUpdater,
+    BatchPostQueryerByPostIdAndVersion, LatestPostQueryerByPostIds, PagePostSyncRecordQueryer,
+    PostCreator, PostDeleter, PostLatestSyncRecordQueryer, PostPageQueryer, PostQueryer,
+    PostUpdater,
 };
 use crate::operations::remote;
 use crate::operations::remote::factory::SyncerFactory;
@@ -15,7 +18,7 @@ use crate::operations::remote::types::SyncError;
 use crate::traits::{DbAction, DbActionError, MongoAction, MongoActionError, Validate};
 use crate::types::github_record::GithubRecordVO;
 use crate::types::posts::{
-    CreatePostError, DeletePostError, PostPageReq, QueryPostError, QuerySyncRecordError,
+    CreatePostError, DeletePostError, Post, PostPageReq, QueryPostError, QuerySyncRecordError,
     SyncPageReq, SyncRecord, SyncRecordVO, SyncReq, UpdatePostError, UpdatePostReq,
 };
 use crate::types::{Page, PageValidationError};
@@ -196,6 +199,18 @@ async fn convert_sync_records(
     let map = BatchPostQueryerByPostIdAndVersion(ids)
         .execute(pool.clone())
         .await?;
+    let post_ids: Vec<i64> = data
+        .iter()
+        .map(|r| match r {
+            SyncRecord::Github(r) => r.post_id(),
+        })
+        .collect();
+    let latest_posts: HashMap<i64, Post> = LatestPostQueryerByPostIds(post_ids)
+        .execute(pool.clone())
+        .await?
+        .into_iter()
+        .map(|p| (p.post_id(), p))
+        .collect();
     let list: Vec<_> = data
         .into_iter()
         .map(|p| match p {
@@ -204,7 +219,8 @@ async fn convert_sync_records(
                     .get(&(p.post_id(), p.version()))
                     .cloned()
                     .unwrap_or_default();
-                SyncRecordVO::Github(GithubRecordVO::package(p, post.clone()))
+                let latest = latest_posts.get(&p.post_id()).cloned().unwrap_or_default();
+                SyncRecordVO::Github(GithubRecordVO::package(p, post.clone(), latest.version()))
             }
         })
         .collect();

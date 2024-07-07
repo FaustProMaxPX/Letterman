@@ -64,10 +64,12 @@ pub struct GithubRecordVO {
     #[serde(serialize_with = "serialize_naive_date_time")]
     update_time: NaiveDateTime,
     platform: Platform,
+    version: i32,
+    latest_version: i32,
 }
 
 impl GithubRecordVO {
-    pub fn package(record: GithubRecord, post: Post) -> Self {
+    pub fn package(record: GithubRecord, post: Post, latest_version: i32) -> Self {
         Self {
             post,
             path: record.path,
@@ -76,6 +78,8 @@ impl GithubRecordVO {
             create_time: record.create_time,
             update_time: record.update_time,
             platform: Platform::Github,
+            version: record.version,
+            latest_version,
         }
     }
 }

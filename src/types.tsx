@@ -38,6 +38,8 @@ export interface BaseSyncRecord {
   platform: Platform;
   url: string;
   createTime: Date;
+  version: number;
+  latestVersion: number
 }
 
 export interface GithubSyncRecord extends BaseSyncRecord {
