@@ -85,7 +85,8 @@ mod github_record_test {
         dotenv::dotenv().ok();
         let db = mongodb_database().await.unwrap();
         let _pool = database_pool().unwrap();
-        let res = GithubRecordQueryerByPostId(1).execute(db.clone()).await;
+        let res = GithubRecordQueryerByPostId(7191634464299159554).execute(db.clone()).await;
         assert!(res.is_ok());
+        println!("{:?}", res.unwrap());
     }
 }

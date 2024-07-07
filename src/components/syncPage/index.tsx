@@ -92,7 +92,7 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
           </AccordionSummary>
           <AccordionDetails>
             暂无同步记录
-            <SyncButtonGroup id={id} platform={platform} />
+            <SyncButtonGroup id={id} platform={platform} first={true} />
           </AccordionDetails>
         </Accordion>
       </Card>
@@ -125,7 +125,7 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
           </AccordionSummary>
           <AccordionDetails>
             <SyncAccordionDetail {...record} />
-            <SyncButtonGroup id={id} platform={platform} />
+            <SyncButtonGroup id={id} platform={platform} first={false} />
           </AccordionDetails>
         </Accordion>
       </Card>

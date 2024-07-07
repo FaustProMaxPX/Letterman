@@ -17,7 +17,7 @@ pub mod posts;
 pub struct CommonResult<T> {
     pub success: bool,
     pub code: i32,
-    pub msg: String,
+    pub message: String,
     pub data: T,
 }
 
@@ -26,14 +26,14 @@ impl<T> CommonResult<T> {
         CommonResult {
             success: true,
             code: 0,
-            msg: "OK".to_string(),
+            message: "OK".to_string(),
             data: (),
         }
     }
     pub fn with_msg(success: bool, code: i32, msg: &str) -> CommonResult<()> {
         CommonResult {
             success,
-            msg: msg.to_string(),
+            message: msg.to_string(),
             data: (),
             code,
         }
@@ -41,7 +41,7 @@ impl<T> CommonResult<T> {
     pub fn with_data(success: bool, code: i32, msg: &str, data: T) -> CommonResult<T> {
         CommonResult {
             success,
-            msg: msg.to_string(),
+            message: msg.to_string(),
             data,
             code,
         }

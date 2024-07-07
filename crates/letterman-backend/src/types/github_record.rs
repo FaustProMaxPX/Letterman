@@ -1,7 +1,7 @@
 use std::string::FromUtf8Error;
 
 use base64::Engine;
-use chrono::NaiveDateTime;
+use chrono::{Local, NaiveDateTime, TimeZone, Utc};
 use mongodb::bson::{doc, Bson, DateTime};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
@@ -251,12 +251,14 @@ where
     D: Deserializer<'de>,
 {
     let dt = DateTime::deserialize(deserializer)?;
-    Ok(dt.to_chrono().naive_local())
+    Ok(dt.to_chrono().naive_utc())
 }
 
 fn serialize_naive_date_time<S>(time: &NaiveDateTime, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    s.serialize_str(time.format("%Y-%m-%d %H:%M:%S").to_string().as_str())
+    let time = Utc.from_utc_datetime(time);
+    let local = time.with_timezone(&Local);
+    s.serialize_str(local.format("%Y-%m-%d %H:%M:%S").to_string().as_str())
 }

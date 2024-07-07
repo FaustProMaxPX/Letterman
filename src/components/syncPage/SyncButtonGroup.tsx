@@ -18,11 +18,13 @@ import { FormField } from "../common/form/FormField";
 export interface SyncButtonGroupProps {
   id: string;
   platform: Platform;
+  first: boolean;
 }
 
 export const SyncButtonGroup = (props: SyncButtonGroupProps) => {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"sync" | "push" | "pull">("sync");
+  const message = useMessage();
   return (
     <>
       <ButtonGroup
@@ -31,27 +33,65 @@ export const SyncButtonGroup = (props: SyncButtonGroupProps) => {
       >
         <Button
           onClick={() => {
-            setType("sync");
-            setOpen(true);
+            if (props.first) {
+              setType("sync");
+              setOpen(true);
+              return;
+            }
+            synchronize(props.id, { platform: props.platform })
+              .then(() => {
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              })
+              .catch((err) => {
+                message.error(formatErrorMessage(err));
+              });
           }}
         >
           Sync
         </Button>
         <Button
           onClick={() => {
-            setType("pull");
-            setOpen(true);
+            if (props.first) {
+              setType("pull");
+              setOpen(true);
+              return;
+            }
+            forcePull(props.id, { platform: props.platform })
+              .then(() => {
+                message.success(`同步成功`);
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              })
+              .catch((err) => {
+                message.error(formatErrorMessage(err));
+              });
           }}
         >
           Pull
         </Button>
         <Button
           onClick={() => {
-            setType("push");
-            setOpen(true);
+            if (props.first) {
+              setType("push");
+              setOpen(true);
+              return;
+            }
+            forcePush(props.id, { platform: props.platform })
+              .then(() => {
+                message.success(`同步成功`);
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              })
+              .catch((err) => {
+                message.error(formatErrorMessage(err));
+              });
           }}
         >
-          Pull
+          Push
         </Button>
       </ButtonGroup>
       <SyncDialog
