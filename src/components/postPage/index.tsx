@@ -1,13 +1,7 @@
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SyncIcon from "@mui/icons-material/Sync";
-import {
-  Box,
-  Button,
-  IconButton,
-  IconButtonProps,
-  Typography,
-} from "@mui/material";
+import { Box, Button, IconButton, Typography } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +12,8 @@ import { formatErrorMessage } from "../../services/utils/transform-response";
 import { formatDate } from "../../utils/time-util";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { BasePage, PageContext } from "../common/page/Page";
-
+import { NavIconButton } from "../common/NavIconButton";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 const columns: GridColDef[] = [
   {
     field: "title",
@@ -33,6 +28,9 @@ const columns: GridColDef[] = [
     headerAlign: "center",
     minWidth: 400,
     align: "center",
+    valueFormatter: (content: string) => {
+      return content.length > 20 ? content.slice(0, 20) + "..." : content;
+    },
   },
   // {
   //   field: "metadata",
@@ -56,33 +54,49 @@ const columns: GridColDef[] = [
       return formatDate(params);
     },
   },
-  {
-    field: "...",
-    headerName: "...",
-    headerAlign: "center",
-    flex: 1,
-    align: "center",
-    renderCell: (params) => (
-      <OptionCell id={params.row.id} postId={params.row.postId} />
-    ),
-  },
 ];
 
-interface NavIconButtonProps extends Omit<IconButtonProps, "onClick"> {
-  children: React.ReactNode;
-  path: string;
-}
+const postOptionCellColDef: GridColDef = {
+  field: "...",
+  headerName: "...",
+  headerAlign: "center",
+  flex: 1,
+  align: "center",
+  renderCell: (params) => (
+    <OptionCell id={params.row.id} postId={params.row.postId} />
+  ),
+};
 
-const NavIconButton: React.FC<NavIconButtonProps> = ({
-  children,
-  path,
-  ...restProps
-}) => {
-  const navigate = useNavigate();
+const syncOptionCellColDef: GridColDef = {
+  field: "...",
+  headerName: "...",
+  headerAlign: "center",
+  flex: 1,
+  align: "center",
+  renderCell: (params) => (
+    <SyncOptionCell id={params.row.id} postId={params.row.postId} />
+  ),
+};
+
+const SyncOptionCell = ({ id, postId }: { id: string; postId: string }) => {
   return (
-    <IconButton onClick={() => navigate(path)} {...restProps}>
-      {children}
-    </IconButton>
+    <Box
+      sx={{
+        display: "flex",
+        height: "100%",
+        flexGrow: 1,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <NavIconButton
+        aria-label="see"
+        color="primary"
+        path={`/sync/posts/${id}`}
+      >
+        <VisibilityIcon />
+      </NavIconButton>
+    </Box>
   );
 };
 
@@ -149,11 +163,17 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
   );
 };
 
-export const PostPage = () => {
-  const [all, setAll] = useState(false);
+export const PostPage = ({ all }: { all: boolean }) => {
+  // const [all, setAll] = useState(false);
   const navigate = useNavigate();
-  const attributes = new Map();
-  attributes.set("all", all);
+  let cols;
+  if (all) {
+    cols = columns.concat(syncOptionCellColDef);
+  } else {
+    cols = columns.concat(postOptionCellColDef);
+  }
+  // const attributes = new Map();
+  // attributes.set("all", all);
   return (
     <Box
       sx={{
@@ -165,16 +185,20 @@ export const PostPage = () => {
       }}
     >
       <Box display={"flex"} justifyContent={"space-between"} mb={2}>
-        <Typography variant="h5">文章列表</Typography>
+        <Typography variant="h5">
+          {all ? "历史所有文章" : "文章列表"}
+        </Typography>
         <Box display={"flex"} justifyContent={"flex-end"} gap={1}>
-          <Button
-            type="button"
-            variant="contained"
-            onClick={() => navigate("/posts/new")}
-          >
-            创建新文章
-          </Button>
           {!all && (
+            <Button
+              type="button"
+              variant="contained"
+              onClick={() => navigate("/posts/new")}
+            >
+              创建新文章
+            </Button>
+          )}
+          {/* {!all && (
             <Button
               type="button"
               variant="contained"
@@ -193,19 +217,18 @@ export const PostPage = () => {
             >
               仅显示最新版文章
             </Button>
-          )}
+          )} */}
         </Box>
       </Box>
       <BasePage
-        colDef={columns}
+        colDef={cols}
         onPageChange={(page, pageSize) => {
           return getPostPage({
             page: page,
             pageSize: pageSize,
-            all,
+            all: all,
           });
         }}
-        attributes={attributes}
       />
     </Box>
   );

@@ -45,9 +45,6 @@ export const SyncPage = () => {
     return <LoadingDisplay />;
   }
 
-  // if (records.length === 0) {
-  //   return <NotFoundDisplay text="当前文章暂时没有同步记录" />;
-  // }
   const recordsMap = new Map(records.map((item) => [item.platform, item]));
 
   return (
@@ -112,7 +109,8 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
                 同步时间：{record.createTime.toLocaleString()}
               </Typography>
               <Typography>标题：{record.post.title}</Typography>
-              <Link href={record.url}>前往文章</Link>
+              <Link href={record.url}>前往文章</Link> <br />
+              <Link href={`/posts/sync/${id}/list`}>查看历史同步记录</Link>
             </CardContent>
           </Box>
           <Box sx={{ flex: "0 0 auto" }}>

@@ -5,7 +5,7 @@ import ListItemText from "@mui/material/ListItemText";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import ArticleIcon from "@mui/icons-material/Article";
 import { NavLink } from "./components/common/NavLink";
-
+import SyncIcon from "@mui/icons-material/Sync";
 
 export const mainListItems = (
   <React.Fragment>
@@ -23,6 +23,14 @@ export const mainListItems = (
           <ArticleIcon />
         </ListItemIcon>
         <ListItemText primary="Posts" />
+      </ListItemButton>
+    </NavLink>
+    <NavLink to={"/sync"}>
+      <ListItemButton>
+        <ListItemIcon>
+          <SyncIcon />
+        </ListItemIcon>
+        <ListItemText primary="Sync" />
       </ListItemButton>
     </NavLink>
   </React.Fragment>

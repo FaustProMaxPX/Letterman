@@ -24,3 +24,9 @@ export interface GithubSyncReq extends BaseSyncReq {
   repository?: string;
   path?: string;
 }
+
+export interface SyncPageReq {
+  page: number;
+  pageSize: number;
+  platform: Platform;
+}

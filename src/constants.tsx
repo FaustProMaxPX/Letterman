@@ -1,3 +1,4 @@
+import gfm from "@bytemd/plugin-gfm";
 import { Platform } from "./types";
 
 export const BASE_URL = "http://localhost:8080";
@@ -17,3 +18,5 @@ export const BREADCRUMB_NAME_MAP: { [key: string]: string } = {
 };
 
 export const PLATFORM_SET = [Platform.Github];
+
+export const BYTEMD_PLUGINS = [gfm()];

@@ -24,6 +24,7 @@ import { PostForm } from "./components/postForm";
 import { PostPage } from "./components/postPage";
 import { mainListItems } from "./listItems";
 import { SyncPage } from "./components/syncPage";
+import { SyncPostTable } from "./components/syncPost";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
@@ -147,10 +148,12 @@ const App = () => {
               <ErrorBoundary FallbackComponent={ErrorDisplay}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/posts" element={<PostPage />} />
+                  <Route path="/posts" element={<PostPage all={false} />} />
                   <Route path="/posts/:id" element={<PostForm />} />
                   <Route path="/posts/new" element={<PostForm />} />
                   <Route path="/posts/sync/:id" element={<SyncPage />} />
+                  <Route path="/sync" element={<PostPage all={true} />} />
+                  <Route path="/sync/posts/:id" element={<SyncPostTable />} />
                 </Routes>
               </ErrorBoundary>
             </Container>

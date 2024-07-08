@@ -5,6 +5,7 @@ import {
   BaseSyncReq,
   CreatePostReq,
   QueryPostPageReq,
+  SyncPageReq,
   UpdatePostReq,
 } from "./requests/posts";
 import { transformResponse } from "./utils/transform-response";
@@ -87,6 +88,20 @@ export const forcePull = async (id: string, req: BaseSyncReq) => {
   const data = await axios.put<CommonResult<null>>(
     `${BASE_URL}/api/post/sync/${id}/pull`,
     req
+  );
+  return transformResponse(data);
+};
+
+export const getSyncList = async (id: string, req: SyncPageReq) => {
+  const data = await axios.get<CommonResult<Page<BaseSyncRecord>>>(
+    `${BASE_URL}/api/post/sync/${id}/records`,
+    {
+      params: {
+        page: req.page,
+        pageSize: req.pageSize,
+        platform: req.platform,
+      },
+    }
   );
   return transformResponse(data);
 };
