@@ -13,7 +13,6 @@ import { formatDate } from "../../utils/time-util";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { BasePage, PageContext } from "../common/page/Page";
 import { NavIconButton } from "../common/NavIconButton";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 const columns: GridColDef[] = [
   {
     field: "title",
@@ -54,51 +53,17 @@ const columns: GridColDef[] = [
       return formatDate(params);
     },
   },
+  {
+    field: "...",
+    headerName: "...",
+    headerAlign: "center",
+    flex: 1,
+    align: "center",
+    renderCell: (params) => (
+      <OptionCell id={params.row.id} postId={params.row.postId} />
+    ),
+  },
 ];
-
-const postOptionCellColDef: GridColDef = {
-  field: "...",
-  headerName: "...",
-  headerAlign: "center",
-  flex: 1,
-  align: "center",
-  renderCell: (params) => (
-    <OptionCell id={params.row.id} postId={params.row.postId} />
-  ),
-};
-
-const syncOptionCellColDef: GridColDef = {
-  field: "...",
-  headerName: "...",
-  headerAlign: "center",
-  flex: 1,
-  align: "center",
-  renderCell: (params) => (
-    <SyncOptionCell id={params.row.id} postId={params.row.postId} />
-  ),
-};
-
-const SyncOptionCell = ({ id, postId }: { id: string; postId: string }) => {
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        height: "100%",
-        flexGrow: 1,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <NavIconButton
-        aria-label="see"
-        color="primary"
-        path={`/sync/posts/${id}`}
-      >
-        <VisibilityIcon />
-      </NavIconButton>
-    </Box>
-  );
-};
 
 const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
   const [open, setOpen] = useState(false);
@@ -163,15 +128,9 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
   );
 };
 
-export const PostPage = ({ all }: { all: boolean }) => {
+export const PostPage = () => {
   // const [all, setAll] = useState(false);
   const navigate = useNavigate();
-  let cols;
-  if (all) {
-    cols = columns.concat(syncOptionCellColDef);
-  } else {
-    cols = columns.concat(postOptionCellColDef);
-  }
   // const attributes = new Map();
   // attributes.set("all", all);
   return (
@@ -184,20 +143,17 @@ export const PostPage = ({ all }: { all: boolean }) => {
         overflow: "hidden",
       }}
     >
-      <Box display={"flex"} justifyContent={"space-between"} mb={2}>
-        <Typography variant="h5">
-          {all ? "历史所有文章" : "文章列表"}
-        </Typography>
+      <Box display={"flex"} justifyContent={"space-between"} mt={1} mb={2}>
+        <Typography variant="h5">文章列表</Typography>
         <Box display={"flex"} justifyContent={"flex-end"} gap={1}>
-          {!all && (
-            <Button
-              type="button"
-              variant="contained"
-              onClick={() => navigate("/posts/new")}
-            >
-              创建新文章
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="contained"
+            onClick={() => navigate("/posts/new")}
+          >
+            创建新文章
+          </Button>
+
           {/* {!all && (
             <Button
               type="button"
@@ -221,12 +177,11 @@ export const PostPage = ({ all }: { all: boolean }) => {
         </Box>
       </Box>
       <BasePage
-        colDef={cols}
+        colDef={columns}
         onPageChange={(page, pageSize) => {
           return getPostPage({
             page: page,
             pageSize: pageSize,
-            all: all,
           });
         }}
       />

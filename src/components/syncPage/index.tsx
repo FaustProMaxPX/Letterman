@@ -4,6 +4,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
+  Button,
   Card,
   CardContent,
   Grid,
@@ -11,7 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { PLATFORM_SET } from "../../constants";
 import useMessage from "../../hooks/useMessage";
 import { getLatestSyncRecords } from "../../services/postsService";
@@ -40,6 +41,7 @@ export const SyncPage = () => {
         .finally(() => setLoading(false));
     }
   }, [id]);
+  const navigate = useNavigate();
 
   if (loading) {
     return <LoadingDisplay />;
@@ -49,7 +51,16 @@ export const SyncPage = () => {
 
   return (
     <>
-      <Typography variant="h5">最近同步记录</Typography>
+      <Box display={"flex"} justifyContent={"space-between"} sx={{ mt: 1 }}>
+        <Typography variant="h5">最近同步记录</Typography>
+        <Button
+          type="button"
+          variant="contained"
+          onClick={() => navigate(`/posts/sync/${id}/list`)}
+        >
+          查看历史同步记录
+        </Button>
+      </Box>
       <Grid container spacing={2}>
         {PLATFORM_SET.map((platform) => (
           <Grid item xs={12} sm={6} md={4} key={platform}>
@@ -110,11 +121,12 @@ const SyncRecordCard = (props: SyncRecordCardProps) => {
               </Typography>
               <Typography>标题：{record.post.title}</Typography>
               <Link href={record.url}>前往文章</Link> <br />
-              <Link href={`/posts/sync/${id}/list`}>查看历史同步记录</Link>
             </CardContent>
           </Box>
           <Box sx={{ flex: "0 0 auto" }}>
-            {record.version === record.latestVersion && <img width="50px" height="50px" src="/src/assets/latest.svg" />}
+            {record.version === record.latestVersion && (
+              <img width="50px" height="50px" src="/src/assets/latest.svg" />
+            )}
           </Box>
         </Box>
         <Accordion>

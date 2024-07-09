@@ -34,12 +34,13 @@ export interface CommonResult<T> {
 }
 
 export interface BaseSyncRecord {
+  id: string;
   post: Post;
   platform: Platform;
   url: string;
   createTime: Date;
   version: number;
-  latestVersion: number
+  latestVersion: number;
 }
 
 export interface GithubSyncRecord extends BaseSyncRecord {
@@ -49,4 +50,5 @@ export interface GithubSyncRecord extends BaseSyncRecord {
 
 export enum Platform {
   Github = "Github",
+  Zhihu = "Zhihu",
 }

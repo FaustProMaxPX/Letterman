@@ -14,6 +14,12 @@ use super::posts::Post;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GithubRecord {
+    #[serde(
+        rename = "_id",
+        serialize_with = "object_id_as_string::serialize",
+        deserialize_with = "object_id_as_string::deserialize"
+    )]
+    id: String,
     post_id: i64,
     version: i32,
     path: String,
@@ -55,6 +61,7 @@ impl GithubRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GithubRecordVO {
+    id: String,
     post: Post,
     path: String,
     repository: String,
@@ -71,6 +78,7 @@ pub struct GithubRecordVO {
 impl GithubRecordVO {
     pub fn package(record: GithubRecord, post: Post, latest_version: i32) -> Self {
         Self {
+            id: record.id,
             post,
             path: record.path,
             repository: record.repository,
@@ -265,4 +273,26 @@ where
     let time = Utc.from_utc_datetime(time);
     let local = time.with_timezone(&Local);
     s.serialize_str(local.format("%Y-%m-%d %H:%M:%S").to_string().as_str())
+}
+
+mod object_id_as_string {
+
+    use bson::oid::ObjectId;
+
+    use super::*;
+
+    pub fn serialize<S>(id: &str, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(id)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let oid = ObjectId::deserialize(deserializer)?;
+        Ok(oid.to_string())
+    }
 }
