@@ -1,6 +1,7 @@
 import {
   Box,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -17,6 +18,7 @@ import { NotFoundDisplay } from "../common/NotFoundDisplay";
 import { BasePage } from "../common/page/Page";
 import { useState } from "react";
 import { PLATFORM_SET } from "../../constants";
+import LinkIcon from "@mui/icons-material/Link";
 const columns: GridColDef[] = [
   {
     field: "version",
@@ -30,10 +32,11 @@ const columns: GridColDef[] = [
     headerName: "内容",
     headerAlign: "center",
     minWidth: 200,
+    width: 500,
     align: "center",
     valueGetter: (post: Post) =>
-      post.content.length > 20
-        ? post.content.slice(0, 20) + "..."
+      post.content.length > 30
+        ? post.content.slice(0, 30) + "..."
         : post.content,
   },
   {
@@ -50,12 +53,22 @@ const columns: GridColDef[] = [
     flex: 1,
     align: "center",
     renderCell: (params) => (
-      <SyncOptionCell id={params.row.post.id} postId={params.row.post.postId} />
+      <SyncOptionCell
+        id={params.row.post.id}
+        postId={params.row.post.postId}
+        url={params.row.url}
+      />
     ),
   },
 ];
 
-const SyncOptionCell = ({ id, postId }: { id: string; postId: string }) => {
+interface SyncOptionCellProps {
+  id: string;
+  postId: string;
+  url: string;
+}
+
+const SyncOptionCell = ({ id, postId, url }: SyncOptionCellProps) => {
   return (
     <Box
       sx={{
@@ -73,6 +86,15 @@ const SyncOptionCell = ({ id, postId }: { id: string; postId: string }) => {
       >
         <VisibilityIcon />
       </NavIconButton>
+      <IconButton
+        LinkComponent={"a"}
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        color="secondary"
+      >
+        <LinkIcon />
+      </IconButton>
     </Box>
   );
 };
