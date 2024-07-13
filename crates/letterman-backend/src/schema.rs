@@ -26,10 +26,13 @@ diesel::table! {
         title -> Varchar,
         #[max_length = 255]
         metadata -> Varchar,
-        version -> Integer,
-        prev_version -> Integer,
+        #[max_length = 256]
+        version -> Varchar,
+        #[max_length = 256]
+        prev_version -> Varchar,
         create_time -> Timestamp,
         update_time -> Timestamp,
+        head -> Bool,
     }
 }
 
@@ -37,11 +40,14 @@ diesel::table! {
     t_post_content (id) {
         id -> Bigint,
         post_id -> Bigint,
-        version -> Integer,
+        #[max_length = 256]
+        version -> Varchar,
         content -> Text,
-        prev_version -> Integer,
+        #[max_length = 256]
+        prev_version -> Varchar,
         create_time -> Timestamp,
         update_time -> Timestamp,
+        head -> Bool,
     }
 }
 

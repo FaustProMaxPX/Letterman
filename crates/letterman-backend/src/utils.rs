@@ -44,3 +44,47 @@ pub mod mongo_utils {
             .await
     }
 }
+
+pub mod sha_utils {
+
+    use std::collections::HashMap;
+
+    use base64::Engine;
+    use sha256::digest;
+
+    pub fn sha(input: &str) -> String {
+        digest(input)
+    }
+
+    pub fn sha_post(title: &str, metadata: &str, content: &str) -> String {
+        let input = format!("---\n{}\n---\n{}\n{}", metadata, title, content);
+        sha(&input)
+    }
+
+    pub fn sha_post2(title: &str, metadata: &HashMap<String, String>, content: &str) -> String {
+        let metadata = metadata
+            .iter()
+            .map(|(k, v)| format!("{}:{}", k, v))
+            .fold("---\n".to_string(), |a, s| format!("{}\n{}", a, s))
+            + "\n---";
+        let input = format!("{}\n{}\n{}", metadata, title, content);
+        sha(&input)
+    }
+
+    #[test]
+    fn sha_post_test() {
+        let mut map = HashMap::new();
+        map.insert("a".to_string(), "b".to_string());
+        let title = "aaa";
+        let content = "test";
+        let sha1 = sha_post2(title, &map, content);
+
+        let sha2 = sha_post2(title, &map, content);
+        assert_eq!(sha1, sha2)
+    }
+
+    #[test]
+    fn base64_test() {
+        base64::prelude::BASE64_STANDARD.decode("LS0tCnkxOiAnMScKdGl0bGU6IOi/meaYr+S4gOevh+a1i+ivleaWh+eroAoKLS0tCgojIFRFU1QKCua1i+ivleS4gOS4i1BVTEwKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=").unwrap();        
+    }
+}

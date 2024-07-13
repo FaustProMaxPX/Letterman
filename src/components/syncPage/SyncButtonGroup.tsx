@@ -40,9 +40,9 @@ export const SyncButtonGroup = (props: SyncButtonGroupProps) => {
             }
             synchronize(props.id, { platform: props.platform })
               .then(() => {
-                setTimeout(() => {
-                  window.location.reload();
-                }, 1000);
+                // setTimeout(() => {
+                //   window.location.reload();
+                // }, 1000);
               })
               .catch((err) => {
                 message.error(formatErrorMessage(err));

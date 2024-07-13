@@ -23,7 +23,9 @@ impl MongoAction for GithubRecordQueryerByPostId {
             .collection(constants::SYNC_RECORDS_COLLECTION)
             .find(filter, None)
             .await?;
-        Ok(utils::mongo_utils::to_vec(cursor).await)
+        let mut data = utils::mongo_utils::to_vec(cursor).await;
+        data.sort_by(|a, b| b.create_time().cmp(a.create_time()));
+        Ok(data)
     }
 }
 
@@ -70,7 +72,7 @@ mod github_record_test {
         let _pool = database_pool().unwrap();
         let record = InsertableGithubRecord::new(
             1,
-            1,
+            "1".to_string(),
             String::from("path"),
             String::from("sha"),
             String::from("repository"),
@@ -85,7 +87,9 @@ mod github_record_test {
         dotenv::dotenv().ok();
         let db = mongodb_database().await.unwrap();
         let _pool = database_pool().unwrap();
-        let res = GithubRecordQueryerByPostId(7191634464299159554).execute(db.clone()).await;
+        let res = GithubRecordQueryerByPostId(7191634464299159554)
+            .execute(db.clone())
+            .await;
         assert!(res.is_ok());
         println!("{:?}", res.unwrap());
     }

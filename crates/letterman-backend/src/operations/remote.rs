@@ -101,5 +101,6 @@ pub(crate) async fn force_push(
     let post = LatestPostQueryerByPostId(post_id)
         .execute(pool.clone())
         .await?;
+    // TODO: 如果没有历史同步记录，使用push_create
     syncer.push_update(&post, mongo_db.clone()).await
 }

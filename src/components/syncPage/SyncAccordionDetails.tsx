@@ -1,3 +1,4 @@
+import { Typography } from "@mui/material";
 import { BaseSyncRecord, GithubSyncRecord, Platform } from "../../types";
 
 export const GithubAccordion = ({
@@ -7,8 +8,8 @@ export const GithubAccordion = ({
 }: GithubSyncRecord) => {
   return (
     <>
-      仓库：{repository} <br /> 路径：{path} <br /> 同步版本：{record.version}{" "}
-      <br /> 最新版本：{record.latestVersion}
+      仓库：{repository} <br /> 路径：{path} <br />{" "}
+      {record.version === record.latestVersion && <Typography color={"#FF8000"}>当前已经是最新版本</Typography> }
     </>
   );
 };

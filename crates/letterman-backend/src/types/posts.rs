@@ -39,8 +39,8 @@ pub struct Post {
     #[serde(serialize_with = "serialize_metadata")]
     metadata: HashMap<String, String>,
     content: String,
-    version: i32,
-    pre_version: i32,
+    version: String,
+    pre_version: String,
     create_time: NaiveDateTime,
     update_time: NaiveDateTime,
 }
@@ -52,8 +52,8 @@ impl Post {
         title: String,
         metadata: HashMap<String, String>,
         content: String,
-        version: i32,
-        pre_version: i32,
+        version: String,
+        pre_version: String,
         create_time: NaiveDateTime,
         update_time: NaiveDateTime,
     ) -> Self {
@@ -92,29 +92,31 @@ impl Post {
         &self.content
     }
 
-    pub fn version(&self) -> i32 {
-        self.version
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
     pub fn title(&self) -> &str {
         &self.title
     }
 
-    pub fn to_po(self) -> (InsertableBasePost, InsertablePostContent) {
+    pub fn to_po(self, head: bool) -> (InsertableBasePost, InsertablePostContent) {
         let base = InsertableBasePost {
             id: utils::snowflake::next_id(),
             post_id: self.post_id,
             title: self.title,
             metadata: serde_json::to_string(&self.metadata).unwrap(),
-            version: self.version,
-            prev_version: self.pre_version,
+            version: self.version.clone(),
+            prev_version: self.pre_version.clone(),
+            head,
         };
         let content = InsertablePostContent {
             id: utils::snowflake::next_id(),
             post_id: self.post_id,
-            version: self.version,
+            version: self.version.clone(),
             content: self.content,
-            prev_version: self.pre_version,
+            prev_version: self.pre_version.clone(),
+            head,
         };
         (base, content)
     }
@@ -122,6 +124,15 @@ impl Post {
     pub fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
+    
+    pub fn update_time(&self) -> &NaiveDateTime {
+        &self.update_time
+    }
+
+    pub fn create_time(&self) -> &NaiveDateTime {
+        &self.create_time
+    }
+
 }
 
 impl From<(InsertableBasePost, InsertablePostContent)> for Post {
@@ -149,8 +160,9 @@ pub struct InsertableBasePost {
     pub post_id: i64,
     pub title: String,
     pub metadata: String,
-    pub version: i32,
-    pub prev_version: i32,
+    pub version: String,
+    pub prev_version: String,
+    pub head: bool,
 }
 
 impl InsertableBasePost {
@@ -159,8 +171,9 @@ impl InsertableBasePost {
         post_id: i64,
         title: String,
         metadata: String,
-        version: i32,
-        prev_version: i32,
+        version: String,
+        prev_version: String,
+        head: bool,
     ) -> Self {
         Self {
             id,
@@ -169,6 +182,7 @@ impl InsertableBasePost {
             metadata,
             version,
             prev_version,
+            head,
         }
     }
 }
@@ -181,10 +195,11 @@ pub struct BasePost {
     pub post_id: i64,
     pub title: String,
     pub metadata: String,
-    pub version: i32,
-    pub prev_version: i32,
+    pub version: String,
+    pub prev_version: String,
     pub create_time: NaiveDateTime,
     pub update_time: NaiveDateTime,
+    pub head: bool,
 }
 
 #[derive(Insertable, Clone, Debug)]
@@ -193,19 +208,28 @@ pub struct BasePost {
 pub struct InsertablePostContent {
     pub id: i64,
     pub post_id: i64,
-    pub version: i32,
+    pub version: String,
     pub content: String,
-    pub prev_version: i32,
+    pub prev_version: String,
+    pub head: bool,
 }
 
 impl InsertablePostContent {
-    pub fn new(id: i64, post_id: i64, version: i32, content: String, prev_version: i32) -> Self {
+    pub fn new(
+        id: i64,
+        post_id: i64,
+        version: String,
+        content: String,
+        prev_version: String,
+        head: bool,
+    ) -> Self {
         Self {
             id,
             post_id,
             version,
             content,
             prev_version,
+            head,
         }
     }
 }
@@ -216,11 +240,12 @@ impl InsertablePostContent {
 pub struct PostContent {
     pub id: i64,
     pub post_id: i64,
-    pub version: i32,
+    pub version: String,
     pub content: String,
-    pub prev_version: i32,
+    pub prev_version: String,
     pub create_time: NaiveDateTime,
     pub update_time: NaiveDateTime,
+    pub head: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -344,24 +369,54 @@ pub struct ValidatedPostCreation {
 }
 
 impl ValidatedPostCreation {
-    pub fn to_post_po(self) -> (InsertableBasePost, InsertablePostContent) {
+    pub fn to_post_po(
+        self,
+        prev_version: Option<String>,
+    ) -> (InsertableBasePost, InsertablePostContent) {
+        let version = utils::sha_utils::sha_post(&self.title, &self.metadata, &self.content);
+        let prev_version = prev_version.unwrap_or("".to_string());
         let post = InsertableBasePost {
             id: utils::snowflake::next_id(),
             post_id: utils::snowflake::next_id(),
             title: self.title,
             metadata: self.metadata,
-            version: 1,
-            prev_version: 0,
+            version: version.clone(),
+            prev_version: prev_version.clone(),
+            head: true,
         };
 
         let content = InsertablePostContent {
             id: utils::snowflake::next_id(),
             post_id: post.post_id,
-            version: 1,
+            version,
             content: self.content,
-            prev_version: 0,
+            prev_version,
+            head: true,
         };
         (post, content)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevertPostReq {
+    pub post_id: i64,
+    pub version: i32,
+}
+
+impl Validate for RevertPostReq {
+    type Item = RevertPostReq;
+
+    type Error = ValidateManipulatePostError;
+
+    fn validate(self) -> Result<Self::Item, Self::Error> {
+        if self.version.is_negative() {
+            return Err(ValidateManipulatePostError {
+                field: "version",
+                msg: "cannot be negative",
+            });
+        }
+        Ok(self)
     }
 }
 
@@ -544,4 +599,10 @@ impl From<bson::de::Error> for QuerySyncRecordError {
     fn from(item: bson::de::Error) -> Self {
         QuerySyncRecordError::Deserialize(item)
     }
+}
+
+#[derive(Debug, Error)]
+pub enum RevertPostError {
+    #[error("Database Error: {0}")]
+    Database(#[source] r2d2::Error),
 }

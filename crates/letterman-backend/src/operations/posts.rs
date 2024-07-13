@@ -12,8 +12,8 @@ use crate::{
     types::{
         posts::{
             BasePost, CreatePostError, DeletePostError, InsertableBasePost, InsertablePostContent,
-            Post, PostContent, PostPageReq, QueryPostError, QuerySyncRecordError, SyncRecord,
-            UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
+            Post, PostContent, PostPageReq, QueryPostError, QuerySyncRecordError, RevertPostError,
+            SyncRecord, UpdatePostError, ValidatedPostCreation, ValidatedPostUpdate,
         },
         Page, Platform,
     },
@@ -33,7 +33,7 @@ impl DbAction for PostCreator {
         self,
         conn: &mut diesel::prelude::MysqlConnection,
     ) -> Result<Self::Item, Self::Error> {
-        let (post, content) = self.0.to_post_po();
+        let (post, content) = self.0.to_post_po(None);
 
         insert_post(conn, post, content).map_err(CreatePostError::from)
     }
@@ -47,8 +47,11 @@ impl DbAction for PostDirectCreator {
     type Error = CreatePostError;
 
     fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
-        let (base, content) = self.0.to_po();
-        insert_post(conn, base, content).map_err(CreatePostError::from)
+        let (base, content) = self.0.to_po(true);
+        conn.transaction(|conn| {
+            remove_old_head(base.post_id, conn)?;
+            insert_post(conn, base, content).map_err(CreatePostError::from)
+        })
     }
 }
 
@@ -71,18 +74,8 @@ impl DbAction for PostPageQueryer {
                 .page_size(self.0.page_size)
                 .load_and_count_pages::<BasePost>(conn)?
         } else {
-            let max_versions = t_post
-                .select(diesel::dsl::sql::<(
-                    diesel::sql_types::BigInt,
-                    diesel::sql_types::Integer,
-                )>("post_id, MAX(version)"))
-                .group_by(post_id)
-                .load::<(i64, i32)>(conn)?;
-            max_versions
-                .iter()
-                .fold(t_post.into_boxed(), |query, p| {
-                    query.or_filter(post_id.eq(p.0).and(version.eq(p.1)))
-                })
+            schema::t_post::table
+                .filter(schema::t_post::head.eq(true))
                 .order_by(id.desc())
                 .paginate(self.0.page)
                 .page_size(self.0.page_size)
@@ -94,7 +87,7 @@ impl DbAction for PostPageQueryer {
                 query.or_filter(
                     t_post_content::post_id
                         .eq(p.post_id)
-                        .and(t_post_content::version.eq(p.version)),
+                        .and(t_post_content::version.eq(&p.version)),
                 )
             });
         let contents: Vec<PostContent> = query.load::<PostContent>(conn)?;
@@ -102,13 +95,13 @@ impl DbAction for PostPageQueryer {
         // convert contents to a map. Key is post_id, value is PostContent
         let contents_map = contents
             .into_iter()
-            .map(|c| ((c.post_id, c.version), c))
+            .map(|c| ((c.post_id, c.version.clone()), c))
             .collect::<std::collections::HashMap<_, _>>();
 
         let page = page
             .into_iter()
             .map(|p| {
-                let content = contents_map.get(&(p.post_id, p.version)).unwrap();
+                let content = contents_map.get(&(p.post_id, p.version.clone())).unwrap();
                 Post::package(p, content.clone())
             })
             .collect::<Vec<Post>>();
@@ -136,14 +129,16 @@ impl DbAction for PostUpdater {
         if prev_latest.version != prev.version {
             return Err(UpdatePostError::NotLatestVersion);
         }
-        let new_version = prev.version + 1;
+        let new_version =
+            utils::sha_utils::sha_post(&self.0.title, &self.0.metadata, &self.0.content);
         let base = InsertableBasePost {
             id: utils::snowflake::next_id(),
             post_id: prev.post_id,
             title: self.0.title,
             metadata: self.0.metadata,
-            version: new_version,
-            prev_version: prev.version,
+            version: new_version.clone(),
+            prev_version: prev.version.clone(),
+            head: true,
         };
         let content = InsertablePostContent {
             id: utils::snowflake::next_id(),
@@ -151,9 +146,13 @@ impl DbAction for PostUpdater {
             version: new_version,
             content: self.0.content,
             prev_version: prev.version,
+            head: true,
         };
+        conn.transaction(|conn| {
+            remove_old_head(base.post_id, conn)?;
 
-        insert_post(conn, base.clone(), content.clone())?;
+            insert_post(conn, base.clone(), content.clone()).map_err(UpdatePostError::from)
+        })?;
         Ok((base, content).into())
     }
 }
@@ -174,6 +173,26 @@ fn insert_post(
     Ok(())
 }
 
+fn remove_old_head(post_id: i64, conn: &mut MysqlConnection) -> Result<(), diesel::result::Error> {
+    diesel::update(schema::t_post::table)
+        .filter(
+            schema::t_post::post_id
+                .eq(post_id)
+                .and(schema::t_post::head.eq(true)),
+        )
+        .set(schema::t_post::head.eq(false))
+        .execute(conn)?;
+    diesel::update(schema::t_post_content::table)
+        .filter(
+            schema::t_post_content::post_id
+                .eq(post_id)
+                .and(schema::t_post_content::head.eq(true)),
+        )
+        .set(schema::t_post_content::head.eq(false))
+        .execute(conn)?;
+    Ok(())
+}
+
 pub struct PostQueryer(pub i64);
 
 impl DbAction for PostQueryer {
@@ -187,17 +206,17 @@ impl DbAction for PostQueryer {
             .filter(
                 schema::t_post_content::post_id
                     .eq(post.post_id)
-                    .and(schema::t_post_content::version.eq(post.version)),
+                    .and(schema::t_post_content::version.eq(&post.version)),
             )
             .first(conn)?;
         Ok(Post::package(post, content))
     }
 }
 
-pub struct BatchPostQueryerByPostIdAndVersion(pub Vec<(i64, i32)>);
+pub struct BatchPostQueryerByPostIdAndVersion(pub Vec<(i64, String)>);
 
 impl DbAction for BatchPostQueryerByPostIdAndVersion {
-    type Item = HashMap<(i64, i32), Post>;
+    type Item = HashMap<(i64, String), Post>;
     type Error = QueryPostError;
 
     fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
@@ -206,7 +225,7 @@ impl DbAction for BatchPostQueryerByPostIdAndVersion {
             .0
             .iter()
             .fold(t_post.into_boxed(), |query, p| {
-                query.or_filter(post_id.eq(p.0).and(version.eq(p.1)))
+                query.or_filter(post_id.eq(p.0).and(version.eq(&p.1)))
             })
             .load(conn)?;
         let query = list
@@ -215,22 +234,22 @@ impl DbAction for BatchPostQueryerByPostIdAndVersion {
                 query.or_filter(
                     t_post_content::post_id
                         .eq(p.post_id)
-                        .and(t_post_content::version.eq(p.version)),
+                        .and(t_post_content::version.eq(&p.version)),
                 )
             });
         let contents: Vec<PostContent> = query.load(conn)?;
         let contents_map = contents
             .into_iter()
-            .map(|c| ((c.post_id, c.version), c))
+            .map(|c| ((c.post_id, c.version.clone()), c))
             .collect::<std::collections::HashMap<_, _>>();
 
-        let ret: HashMap<(i64, i32), Post> = list
+        let ret: HashMap<(i64, String), Post> = list
             .into_iter()
             .map(|p| {
-                let content = contents_map.get(&(p.post_id, p.version)).unwrap();
+                let content = contents_map.get(&(p.post_id, p.version.clone())).unwrap();
                 Post::package(p, content.clone())
             })
-            .map(|p| ((p.post_id(), p.version()), p))
+            .map(|p| ((p.post_id(), p.version().to_string()), p))
             .collect();
         Ok(ret)
     }
@@ -274,14 +293,17 @@ impl DbAction for LatestPostQueryerByPostId {
         use schema::t_post::dsl::*;
         use schema::t_post_content::dsl::*;
         let base: BasePost = t_post
-            .filter(schema::t_post::post_id.eq(self.0))
-            .order_by(schema::t_post::version.desc())
+            .filter(
+                schema::t_post::post_id
+                    .eq(self.0)
+                    .and(schema::t_post::head.eq(true)),
+            )
             .first(conn)?;
         let post_content: PostContent = t_post_content
             .filter(
                 schema::t_post_content::post_id
                     .eq(self.0)
-                    .and(schema::t_post_content::version.eq(base.version)),
+                    .and(schema::t_post_content::version.eq(&base.version)),
             )
             .first(conn)?;
         Ok(Post::package(base, post_content))
@@ -297,28 +319,21 @@ impl DbAction for LatestPostQueryerByPostIds {
 
     fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
         use schema::t_post::dsl::*;
-        let max_versions: Vec<(i64, i32)> = t_post
-            .select(diesel::dsl::sql::<(
-                diesel::sql_types::BigInt,
-                diesel::sql_types::Integer,
-            )>("post_id, MAX(version)"))
-            .filter(post_id.eq_any(self.0))
-            .group_by(post_id)
-            .load(conn)?;
-        let base_posts = max_versions
-            .iter()
-            .fold(t_post.into_boxed(), |query, p| {
-                query.or_filter(post_id.eq(p.0).and(version.eq(p.1)))
-            })
+        let base_posts: Vec<BasePost> = t_post
+            .filter(
+                schema::t_post::post_id
+                    .eq_any(self.0)
+                    .and(schema::t_post::head.eq(true)),
+            )
             .order_by(id.desc())
-            .load::<BasePost>(conn)?;
+            .load(conn)?;
         let query = base_posts
             .iter()
             .fold(t_post_content::table.into_boxed(), |query, p| {
                 query.or_filter(
                     t_post_content::post_id
                         .eq(p.post_id)
-                        .and(t_post_content::version.eq(p.version)),
+                        .and(t_post_content::version.eq(&p.version)),
                 )
             });
         let contents: Vec<PostContent> = query.load::<PostContent>(conn)?;
@@ -326,13 +341,13 @@ impl DbAction for LatestPostQueryerByPostIds {
         // convert contents to a map. Key is post_id, value is PostContent
         let contents_map = contents
             .into_iter()
-            .map(|c| ((c.post_id, c.version), c))
+            .map(|c| ((c.post_id, c.version.clone()), c))
             .collect::<std::collections::HashMap<_, _>>();
 
         let posts = base_posts
             .into_iter()
             .map(|p| {
-                let content = contents_map.get(&(p.post_id, p.version)).unwrap();
+                let content = contents_map.get(&(p.post_id, p.version.clone())).unwrap();
                 Post::package(p, content.clone())
             })
             .collect::<Vec<Post>>();
@@ -384,7 +399,7 @@ impl MongoAction for PostLatestSyncRecordQueryer {
     async fn mongo_action(self, db: mongodb::Database) -> Result<Self::Item, Self::Error> {
         let pipeline = vec![
             doc! { "$match": {"post_id": self.0}},
-            doc! {"$sort": {"version": -1}},
+            doc! {"$sort": {"create_time": -1}},
             doc! {
              "$group": {
                  "_id": "$platform",
@@ -412,6 +427,18 @@ impl MongoAction for PostLatestSyncRecordQueryer {
             })
             .collect();
         Ok(records)
+    }
+}
+
+pub struct PostReverter(pub i64, pub i32);
+
+impl DbAction for PostReverter {
+    type Item = ();
+
+    type Error = RevertPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        unimplemented!()
     }
 }
 

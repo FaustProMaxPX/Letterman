@@ -4,6 +4,7 @@ pub mod schema;
 pub mod traits;
 pub mod types;
 pub mod utils;
+pub mod logger;
 
 use std::env;
 
@@ -14,6 +15,7 @@ use actix_web::{
 };
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 
+use logger::ErrorLogger;
 use mongodb::options::ClientOptions;
 use r2d2::Pool;
 use routes::{
@@ -45,7 +47,7 @@ pub async fn mongodb_database() -> Result<mongodb::Database, Box<dyn std::error:
 
 fn init_logger() {
     std::env::set_var("RUST_LOG", "info");
-    std::env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var("RUST_BACKTRACE", "full");
     env_logger::init();
 }
 

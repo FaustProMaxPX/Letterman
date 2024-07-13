@@ -21,7 +21,7 @@ pub struct GithubRecord {
     )]
     id: String,
     post_id: i64,
-    version: i32,
+    version: String,
     path: String,
     sha: String,
     repository: String,
@@ -37,8 +37,8 @@ impl GithubRecord {
         self.post_id
     }
 
-    pub fn version(&self) -> i32 {
-        self.version
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
     pub fn path(&self) -> &str {
@@ -56,6 +56,14 @@ impl GithubRecord {
     pub fn url(&self) -> &str {
         &self.url
     }
+    
+    pub fn create_time(&self) -> &NaiveDateTime {
+        &self.create_time
+    }
+    
+    pub fn update_time(&self) -> &NaiveDateTime {
+        &self.update_time
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,12 +79,12 @@ pub struct GithubRecordVO {
     #[serde(serialize_with = "serialize_naive_date_time")]
     update_time: NaiveDateTime,
     platform: Platform,
-    version: i32,
-    latest_version: i32,
+    version: String,
+    latest_version: String,
 }
 
 impl GithubRecordVO {
-    pub fn package(record: GithubRecord, post: Post, latest_version: i32) -> Self {
+    pub fn package(record: GithubRecord, post: Post, latest_version: String) -> Self {
         Self {
             id: record.id,
             post,
@@ -94,7 +102,7 @@ impl GithubRecordVO {
 
 pub struct InsertableGithubRecord {
     pub post_id: i64,
-    pub version: i32,
+    pub version: String,
     pub path: String,
     pub sha: String,
     pub repository: String,
@@ -122,7 +130,7 @@ impl DocumentConvert for InsertableGithubRecord {
 impl InsertableGithubRecord {
     pub fn new(
         post_id: i64,
-        version: i32,
+        version: String,
         path: String,
         sha: String,
         repository: String,
@@ -150,14 +158,16 @@ pub struct GithubArticleRecord {
     pub sha: String,
     pub url: String,
     pub encoding: String,
+    pub html_url: String,
 }
 
 impl GithubArticleRecord {
     pub fn decode_content(self) -> Result<GithubArticleRecord, DecodeError> {
+        println!("self.encoding: {:?}", self.encoding);
         match &*self.encoding {
             "base64" => {
                 let content = self.content.replace('\n', "");
-                let content = base64::prelude::BASE64_STANDARD_NO_PAD.decode(content)?;
+                let content = base64::prelude::BASE64_STANDARD.decode(content)?;
                 let content = String::from_utf8(content)?;
                 Ok(GithubArticleRecord {
                     name: self.name,
@@ -166,6 +176,7 @@ impl GithubArticleRecord {
                     sha: self.sha,
                     url: self.url,
                     encoding: self.encoding,
+                    html_url: self.html_url,
                 })
             }
             _ => Err(DecodeError::UnsupportedEncoding(self.encoding.clone())),

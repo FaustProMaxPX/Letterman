@@ -19,7 +19,7 @@ use crate::traits::{DbAction, DbActionError, MongoAction, MongoActionError, Vali
 use crate::types::github_record::GithubRecordVO;
 use crate::types::posts::{
     CreatePostError, DeletePostError, Post, PostPageReq, QueryPostError, QuerySyncRecordError,
-    SyncPageReq, SyncRecord, SyncRecordVO, SyncReq, UpdatePostError, UpdatePostReq,
+    RevertPostReq, SyncPageReq, SyncRecord, SyncRecordVO, SyncReq, UpdatePostError, UpdatePostReq,
 };
 use crate::types::{Page, PageValidationError};
 use crate::{
@@ -186,14 +186,23 @@ pub(crate) async fn get_latest_sync_records(
     Ok(HttpResponse::Ok().json(CommonResult::success_with_data(list)))
 }
 
+pub(crate) async fn revert_post(
+    state: Data<State>,
+    req: Query<RevertPostReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let req = req.into_inner().validate()?;
+
+    Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
 async fn convert_sync_records(
     data: Vec<SyncRecord>,
     pool: Pool<ConnectionManager<MysqlConnection>>,
 ) -> Result<Vec<SyncRecordVO>, PostResponseError> {
-    let ids: Vec<(i64, i32)> = data
+    let ids: Vec<(i64, String)> = data
         .iter()
         .map(|r| match r {
-            SyncRecord::Github(r) => (r.post_id(), r.version()),
+            SyncRecord::Github(r) => (r.post_id(), r.version().to_string()),
         })
         .collect();
     let map = BatchPostQueryerByPostIdAndVersion(ids)
@@ -216,11 +225,15 @@ async fn convert_sync_records(
         .map(|p| match p {
             SyncRecord::Github(p) => {
                 let post = map
-                    .get(&(p.post_id(), p.version()))
+                    .get(&(p.post_id(), p.version().to_string()))
                     .cloned()
                     .unwrap_or_default();
                 let latest = latest_posts.get(&p.post_id()).cloned().unwrap_or_default();
-                SyncRecordVO::Github(GithubRecordVO::package(p, post.clone(), latest.version()))
+                SyncRecordVO::Github(GithubRecordVO::package(
+                    p,
+                    post.clone(),
+                    latest.version().to_string(),
+                ))
             }
         })
         .collect();

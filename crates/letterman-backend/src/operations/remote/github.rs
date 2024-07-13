@@ -8,14 +8,17 @@ use reqwest::header::{self, HeaderValue};
 use thiserror::Error;
 
 use crate::{
-    operations::github_record::{GithubRecordCreator, GithubRecordQueryerByPostId},
+    operations::{
+        github_record::{GithubRecordCreator, GithubRecordQueryerByPostId},
+        posts::PostLatestSyncRecordQueryer,
+    },
     traits::{MongoAction, MongoActionError},
     types::{
         github_record::{
             CreateContentParam, GithubArticleRecord, GithubRecord, InsertableGithubRecord,
             QueryGithubRecordError, UpdateContentParam, WriteContentResp,
         },
-        posts::Post,
+        posts::{Post, QuerySyncRecordError, SyncRecord},
     },
     utils::{self},
 };
@@ -60,7 +63,7 @@ impl SyncAction for GithubSyncer {
         let resp = resp.json::<WriteContentResp>().await?;
         GithubRecordCreator(InsertableGithubRecord::new(
             post.post_id(),
-            post.version(),
+            post.version().to_string(),
             resp.content.path,
             resp.content.sha,
             repo.clone(),
@@ -98,7 +101,7 @@ impl SyncAction for GithubSyncer {
         let resp: WriteContentResp = resp.json().await?;
         GithubRecordCreator(InsertableGithubRecord::new(
             post.post_id(),
-            post.version() + 1,
+            post.version().to_string(),
             resp.content.path,
             resp.content.sha,
             record.repository().to_string(),
@@ -120,23 +123,53 @@ impl SyncAction for GithubSyncer {
         if content.is_none() {
             return Ok(None);
         }
-
-        let res = extract(&content.unwrap().content)?;
+        let content = content.unwrap();
+        let res = extract(&content.content)?;
+        let title = if let Some(title) = res.title {
+            title
+        } else {
+            post.title().to_string()
+        };
+        let version = utils::sha_utils::sha_post2(&title, &res.metadata, &res.content);
         let post = Post::new(
             utils::snowflake::next_id(),
             post.post_id(),
-            if let Some(title) = res.title {
-                title
-            } else {
-                post.title().to_string()
-            },
+            title,
             res.metadata,
             res.content,
-            post.version() + 1,
-            post.version(),
+            version,
+            post.version().to_string(),
             utils::time_utils::now(),
             utils::time_utils::now(),
         );
+        let records = PostLatestSyncRecordQueryer(post.post_id())
+            .execute(mongo_db.clone())
+            .await?;
+        let repo = records
+            .into_iter()
+            .filter(|record| matches!(record, SyncRecord::Github(_)))
+            .last()
+            .map(|r| match r {
+                SyncRecord::Github(r) => r.repository().to_string(),
+                _ => "".to_string(),
+            });
+        let repo = if let Some(repo) = repo {
+            repo.to_string()
+        } else if let Some(repo) = self.repository.clone() {
+            repo
+        } else {
+            return Err(SyncError::UserError("Not specify repository".to_string()));
+        };
+        GithubRecordCreator(InsertableGithubRecord::new(
+            post.post_id(),
+            post.version().to_string(),
+            content.path.clone(),
+            content.sha.clone(),
+            repo,
+            content.html_url.clone(),
+        ))
+        .execute(mongo_db.clone())
+        .await?;
 
         Ok(Some(post))
     }
@@ -154,7 +187,8 @@ impl SyncAction for GithubSyncer {
         }
         let records = records.unwrap();
         let first = records.first().unwrap();
-        match post.version().cmp(&first.version()) {
+        
+        match post.create_time().cmp(first.create_time()) {
             std::cmp::Ordering::Greater => Ok((false, true, false)),
             std::cmp::Ordering::Equal => Ok((true, false, false)),
             std::cmp::Ordering::Less => Ok((false, false, false)),
@@ -254,7 +288,6 @@ impl GithubSyncer {
             return Err(SyncError::RemoteServer);
         }
         let content = resp.json::<GithubArticleRecord>().await?.decode_content()?;
-
         {
             self.ctx.set(GITHUB_SYNC_POST_KEY.to_string(), content);
         }
@@ -439,6 +472,24 @@ impl From<markdown::message::Message> for SyncError {
 impl From<serde_json::Error> for SyncError {
     fn from(value: serde_json::Error) -> Self {
         SyncError::Other(format!("failed to parse json: {}", value))
+    }
+}
+
+impl From<QuerySyncRecordError> for SyncError {
+    fn from(item: QuerySyncRecordError) -> Self {
+        match item {
+            QuerySyncRecordError::Database(_) => SyncError::Database,
+            QuerySyncRecordError::Deserialize(e) => SyncError::Other(e.to_string()),
+        }
+    }
+}
+
+impl From<MongoActionError<QuerySyncRecordError>> for SyncError {
+    fn from(value: MongoActionError<QuerySyncRecordError>) -> Self {
+        match value {
+            MongoActionError::Error(e) => e.into(),
+            MongoActionError::Pool(_) => SyncError::Database,
+        }
     }
 }
 
