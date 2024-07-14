@@ -187,7 +187,7 @@ impl SyncAction for GithubSyncer {
         }
         let records = records.unwrap();
         let first = records.first().unwrap();
-        
+
         match post.create_time().cmp(first.create_time()) {
             std::cmp::Ordering::Greater => Ok((false, true, false)),
             std::cmp::Ordering::Equal => Ok((true, false, false)),
@@ -301,6 +301,7 @@ impl GithubSyncer {
     }
 }
 
+#[derive(Debug)]
 struct ExtractResult {
     title: Option<String>,
     content: String,
@@ -343,19 +344,16 @@ fn extract(content: &str) -> Result<ExtractResult, markdown::message::Message> {
     };
 
     if let Some(children) = ast.children() {
-        let mut frontmatters = vec![];
-        for ele in children {
-            frontmatters.extend(dfs(ele));
-        }
         let mut metadata = HashMap::new();
-        let mut title = None;
-        for ele in frontmatters {
-            if ele.0 == "title" {
-                title = Some(ele.1);
-                continue;
+        for child in children {
+            let map = extract_metadata(child);
+            if let Some(map) = map {
+                metadata.extend(map);
+                break;
             }
-            metadata.insert(ele.0, ele.1);
         }
+        let title = metadata.get("title").map(|t| t.to_string());
+        metadata.remove("title");
         Ok(ExtractResult {
             title,
             content: content.to_string(),
@@ -370,22 +368,20 @@ fn extract(content: &str) -> Result<ExtractResult, markdown::message::Message> {
     }
 }
 
-fn dfs(node: &markdown::mdast::Node) -> Vec<(String, String)> {
-    let mut ret = vec![];
+fn extract_metadata(node: &Node) -> Option<HashMap<String, String>> {
     if let Node::Yaml(markdown::mdast::Yaml { value, .. }) = node {
-        let mut split = value.split(':');
-        let key = split.next().unwrap();
-        let value = split.next().unwrap();
-        ret.push((key.to_string(), value.to_string()));
-    }
-    let children = node.children();
-    if let Some(children) = children {
-        for child in children {
-            ret.extend(dfs(child))
+        let mut metadata = HashMap::new();
+        let lines = value.split('\n');
+        for line in lines {
+            let mut split = line.splitn(2, ':'); // 使用 splitn 限制拆分次数为 2
+            if let (Some(key), Some(value)) = (split.next(), split.next()) {
+                metadata.insert(key.trim().to_string(), value.trim().to_string());
+            }
         }
+        Some(metadata)
+    } else {
+        None
     }
-
-    ret
 }
 
 #[derive(Debug, Clone, Error)]
@@ -598,5 +594,50 @@ mod github_sync_test {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn extract_test() {
+        let content: &'static str = "---
+y1: 1
+'2': '2'
+title: 这是一篇测试文章
+
+---
+
+
+# TEST
+
+测试一下PULL
+
+测试一下PUSH
+
+测试一下sync
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+";
+        let res = extract(content);
+        println!("{:#?}", res.unwrap())
     }
 }
