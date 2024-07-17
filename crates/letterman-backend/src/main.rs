@@ -1,10 +1,10 @@
+pub mod logger;
 pub mod operations;
 pub mod routes;
 pub mod schema;
 pub mod traits;
 pub mod types;
 pub mod utils;
-pub mod logger;
 
 use std::env;
 
@@ -15,14 +15,13 @@ use actix_web::{
 };
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 
-use logger::ErrorLogger;
 use mongodb::options::ClientOptions;
 use r2d2::Pool;
 use routes::{
     common::ping,
     posts::{
         create, delete_post, force_pull, force_push, get_latest_sync_records, get_list, get_post,
-        get_sync_records, synchronize, update,
+        get_sync_records, revert_post, synchronize, update,
     },
 };
 
@@ -102,7 +101,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .service(
                                 resource("records/latest").route(get().to(get_latest_sync_records)),
                             ),
-                    ),
+                    )
+                    .service(resource("sync").route(put().to(revert_post))),
             )
             .service(ping)
     })

@@ -310,8 +310,10 @@ struct ExtractResult {
 
 /// package markdown content with metadata
 fn package(post: &Post) -> Result<String, serde_yaml::Error> {
-    let mut metadata = post.metadata().clone();
+    let mut metadata = HashMap::new();
+
     metadata.insert("title".to_string(), post.title().to_string());
+    metadata.extend(post.metadata().clone());
     let frontmatter = serde_yaml::to_string(&metadata)?;
     let content = format!("---\n{}\n---\n{}", frontmatter, post.content());
     Ok(content)
@@ -331,6 +333,7 @@ fn extract(content: &str) -> Result<ExtractResult, markdown::message::Message> {
             ..markdown::ParseOptions::default()
         },
     )?;
+    // TODO: 无法解析数组格式的YAML
     let content = {
         if let Some(idx) = content.find("---") {
             if let Some(idx2) = content[idx + 3..].find("---") {
@@ -597,47 +600,46 @@ mod github_sync_test {
     }
 
     #[test]
+    fn serialize_metadata_test() {
+        let v = vec![("title", "11")];
+        let mut m = HashMap::new();
+        m.insert("title".to_string(), "111".to_string());
+        println!("{}", serde_yaml::to_string(&v).unwrap());
+        println!("{}", serde_yaml::to_string(&m).unwrap())
+    }
+
+    #[test]
     fn extract_test() {
         let content: &'static str = "---
-y1: 1
-'2': '2'
-title: 这是一篇测试文章
-
+title: Remake | CS50 AI入门笔记
+top: false
+toc: true
+mathjax: true
+date: 2022-07-02 17:02:19
+password:
+summary:
+tags:
+    - 人工智能
+categories:
+    - Remake
 ---
 
-
-# TEST
-
-测试一下PULL
-
-测试一下PUSH
-
-测试一下sync
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Introduction  to  AI
 ";
-        let res = extract(content);
-        println!("{:#?}", res.unwrap())
+        let constructs = Constructs {
+            frontmatter: true,
+            ..Constructs::default()
+        };
+        let ast = markdown::to_mdast(
+            content,
+            &markdown::ParseOptions {
+                constructs,
+                ..markdown::ParseOptions::default()
+            },
+        )
+        .unwrap();
+        println!("{:#?}", ast);
+        // let res = extract(content);
+        // println!("{:#?}", res.unwrap())
     }
 }

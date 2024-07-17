@@ -430,7 +430,7 @@ impl MongoAction for PostLatestSyncRecordQueryer {
     }
 }
 
-pub struct PostReverter(pub i64, pub i32);
+pub struct PostReverter(pub i64, pub String);
 
 impl DbAction for PostReverter {
     type Item = ();
@@ -438,7 +438,41 @@ impl DbAction for PostReverter {
     type Error = RevertPostError;
 
     fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
-        unimplemented!()
+        use schema::t_post::dsl::*;
+        let base: BasePost = t_post
+            .filter(post_id.eq(self.0).and(version.eq(self.1.clone())))
+            .first(conn)?;
+        conn.transaction(|conn| {
+            diesel::delete(t_post)
+                .filter(create_time.gt(&base.create_time))
+                .execute(conn)?;
+            diesel::delete(schema::t_post_content::table)
+                .filter(schema::t_post_content::create_time.gt(&base.create_time))
+                .execute(conn)
+        })?;
+        Ok(())
+    }
+}
+
+pub struct PostQueryerByPostIdAndVersion(pub i64, pub String);
+
+impl DbAction for PostQueryerByPostIdAndVersion {
+    type Item = Post;
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        let base: BasePost = t_post
+            .filter(post_id.eq(self.0).and(version.eq(self.1.clone())))
+            .first(conn)?;
+        let content: PostContent = schema::t_post_content::table
+            .filter(
+                schema::t_post_content::post_id
+                    .eq(self.0)
+                    .and(schema::t_post_content::version.eq(self.1)),
+            )
+            .first(conn)?;
+        Ok(Post::package(base, content))
     }
 }
 

@@ -10,7 +10,7 @@ use r2d2::Pool;
 use crate::operations::posts::{
     BatchPostQueryerByPostIdAndVersion, LatestPostQueryerByPostIds, PagePostSyncRecordQueryer,
     PostCreator, PostDeleter, PostLatestSyncRecordQueryer, PostPageQueryer, PostQueryer,
-    PostUpdater,
+    PostReverter, PostUpdater,
 };
 use crate::operations::remote;
 use crate::operations::remote::factory::SyncerFactory;
@@ -19,7 +19,8 @@ use crate::traits::{DbAction, DbActionError, MongoAction, MongoActionError, Vali
 use crate::types::github_record::GithubRecordVO;
 use crate::types::posts::{
     CreatePostError, DeletePostError, Post, PostPageReq, QueryPostError, QuerySyncRecordError,
-    RevertPostReq, SyncPageReq, SyncRecord, SyncRecordVO, SyncReq, UpdatePostError, UpdatePostReq,
+    RevertPostError, RevertPostReq, SyncPageReq, SyncRecord, SyncRecordVO, SyncReq,
+    UpdatePostError, UpdatePostReq,
 };
 use crate::types::{Page, PageValidationError};
 use crate::{
@@ -191,7 +192,7 @@ pub(crate) async fn revert_post(
     req: Query<RevertPostReq>,
 ) -> Result<HttpResponse, PostResponseError> {
     let req = req.into_inner().validate()?;
-
+    PostReverter(req.post_id, req.version).execute(state.pool.clone()).await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
 }
 
@@ -293,6 +294,25 @@ impl From<QueryPostError> for PostResponseError {
         match item {
             QueryPostError::Database => PostResponseError::Database,
             QueryPostError::NotFound => PostResponseError::NotFound,
+        }
+    }
+}
+
+impl From<DbActionError<RevertPostError>> for PostResponseError {
+    fn from(item: DbActionError<RevertPostError>) -> Self {
+        match item {
+            DbActionError::Error(e) => e.into(),
+            DbActionError::Pool(e) => PostResponseError::Pool(e),
+            DbActionError::Canceled => PostResponseError::Canceled,
+        }
+    }
+}
+
+impl From<RevertPostError> for PostResponseError {
+    fn from(item: RevertPostError) -> Self {
+        match item {
+            RevertPostError::Database => PostResponseError::Database,
+            RevertPostError::NotFound => PostResponseError::NotFound,
         }
     }
 }

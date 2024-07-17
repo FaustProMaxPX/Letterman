@@ -2,11 +2,17 @@ use async_trait::async_trait;
 use diesel::{r2d2::ConnectionManager, MysqlConnection};
 use r2d2::Pool;
 
-use crate::{traits::DbAction, types::posts::Post};
+use crate::{
+    traits::{DbAction, MongoAction},
+    types::posts::Post,
+};
 
 use self::types::SyncError;
 
-use super::posts::{LatestPostQueryerByPostId, PostDirectCreator};
+use super::{
+    github_record::GithubRecordQueryerByPostId,
+    posts::{LatestPostQueryerByPostId, PostDirectCreator},
+};
 
 pub mod factory;
 pub mod github;
@@ -101,6 +107,12 @@ pub(crate) async fn force_push(
     let post = LatestPostQueryerByPostId(post_id)
         .execute(pool.clone())
         .await?;
-    // TODO: 如果没有历史同步记录，使用push_create
-    syncer.push_update(&post, mongo_db.clone()).await
+    let records = GithubRecordQueryerByPostId(post_id)
+        .execute(mongo_db.clone())
+        .await?;
+    if records.is_empty() {
+        syncer.push_create(&post, mongo_db.clone()).await
+    } else {
+        syncer.push_update(&post, mongo_db.clone()).await
+    }
 }

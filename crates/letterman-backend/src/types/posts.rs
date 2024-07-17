@@ -124,7 +124,7 @@ impl Post {
     pub fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
-    
+
     pub fn update_time(&self) -> &NaiveDateTime {
         &self.update_time
     }
@@ -132,7 +132,6 @@ impl Post {
     pub fn create_time(&self) -> &NaiveDateTime {
         &self.create_time
     }
-
 }
 
 impl From<(InsertableBasePost, InsertablePostContent)> for Post {
@@ -397,11 +396,11 @@ impl ValidatedPostCreation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RevertPostReq {
     pub post_id: i64,
-    pub version: i32,
+    pub version: String,
 }
 
 impl Validate for RevertPostReq {
@@ -410,10 +409,10 @@ impl Validate for RevertPostReq {
     type Error = ValidateManipulatePostError;
 
     fn validate(self) -> Result<Self::Item, Self::Error> {
-        if self.version.is_negative() {
+        if self.version.is_empty() {
             return Err(ValidateManipulatePostError {
                 field: "version",
-                msg: "cannot be negative",
+                msg: "cannot be empty",
             });
         }
         Ok(self)
@@ -603,6 +602,17 @@ impl From<bson::de::Error> for QuerySyncRecordError {
 
 #[derive(Debug, Error)]
 pub enum RevertPostError {
-    #[error("Database Error: {0}")]
-    Database(#[source] r2d2::Error),
+    #[error("Database Error")]
+    Database,
+    #[error("Post Not Found")]
+    NotFound,
+}
+
+impl From<diesel::result::Error> for RevertPostError {
+    fn from(item: diesel::result::Error) -> Self {
+        match item {
+            diesel::result::Error::NotFound => RevertPostError::NotFound,
+            _ => RevertPostError::Database,
+        }
+    }
 }
