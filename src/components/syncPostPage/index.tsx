@@ -11,14 +11,21 @@ import { GridColDef } from "@mui/x-data-grid";
 import { Platform, Post } from "../../types";
 import { NavIconButton } from "../common/NavIconButton";
 
+import LinkIcon from "@mui/icons-material/Link";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { getSyncList } from "../../services/postsService";
+import { PLATFORM_SET } from "../../constants";
+import {
+  forcePush,
+  getSyncList,
+  revertPost,
+} from "../../services/postsService";
 import { NotFoundDisplay } from "../common/NotFoundDisplay";
 import { BasePage } from "../common/page/Page";
-import { useState } from "react";
-import { PLATFORM_SET } from "../../constants";
-import LinkIcon from "@mui/icons-material/Link";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import useMessage from "../../hooks/useMessage";
+import { formatErrorMessage } from "../../services/utils/transform-response";
 const columns: GridColDef[] = [
   {
     field: "version",
@@ -57,6 +64,7 @@ const columns: GridColDef[] = [
         id={params.row.post.id}
         postId={params.row.post.postId}
         url={params.row.url}
+        platform={params.row.platform}
       />
     ),
   },
@@ -66,9 +74,12 @@ interface SyncOptionCellProps {
   id: string;
   postId: string;
   url: string;
+  platform: Platform;
 }
 
-const SyncOptionCell = ({ id, postId, url }: SyncOptionCellProps) => {
+const SyncOptionCell = ({ id, postId, url, platform }: SyncOptionCellProps) => {
+  const [open, setOpen] = useState(false);
+  const message = useMessage();
   return (
     <Box
       sx={{
@@ -95,6 +106,34 @@ const SyncOptionCell = ({ id, postId, url }: SyncOptionCellProps) => {
       >
         <LinkIcon />
       </IconButton>
+      <IconButton type="button" onClick={() => setOpen(true)}>
+        <img width={20} height={20} alt="revert" src="/src/assets/revert.svg" />
+      </IconButton>
+      <ConfirmDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onConfirm={() => {
+          revertPost({ id })
+            .then(() => {
+              forcePush(postId, { platform })
+                .then(() => {
+                  message.success("文章已回滚成功");
+                })
+                .catch((err) =>
+                  message.error(
+                    `文章同步到${platform}失败：${formatErrorMessage(
+                      err
+                    )}，请手动重试`
+                  )
+                );
+            })
+            .catch((err) => message.error(formatErrorMessage(err)))
+            .finally(() => setOpen(false));
+        }}
+        title="版本回滚"
+        content={`是否确定回滚到该版本并推送到${platform}。\n
+        注意：回滚文章将导致目标版本之后被创建的版本全部删除。`}
+      />
     </Box>
   );
 };

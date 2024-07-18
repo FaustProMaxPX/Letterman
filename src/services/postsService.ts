@@ -5,6 +5,7 @@ import {
   BaseSyncReq,
   CreatePostReq,
   QueryPostPageReq,
+  RevertReq,
   SyncPageReq,
   UpdatePostReq,
 } from "./requests/posts";
@@ -102,6 +103,14 @@ export const getSyncList = async (id: string, req: SyncPageReq) => {
         platform: req.platform,
       },
     }
+  );
+  return transformResponse(data);
+};
+
+export const revertPost = async (req: RevertReq) => {
+  const data = await axios.put<CommonResult<null>>(
+    `${BASE_URL}/api/post/sync/revert`,
+    req
   );
   return transformResponse(data);
 };

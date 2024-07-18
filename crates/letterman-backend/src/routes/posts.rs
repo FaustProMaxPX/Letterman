@@ -192,7 +192,7 @@ pub(crate) async fn revert_post(
     req: Json<RevertPostReq>,
 ) -> Result<HttpResponse, PostResponseError> {
     let req = req.into_inner().validate()?;
-    PostReverter(req.post_id, req.version).execute(state.pool.clone()).await?;
+    PostReverter(req.id).execute(state.pool.clone()).await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
 }
 

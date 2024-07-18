@@ -22,7 +22,7 @@ import { LoadingDisplay } from "../common/LoadingDisplay";
 import { SyncAccordionDetail } from "./SyncAccordionDetails";
 import { SyncButtonGroup } from "./SyncButtonGroup";
 
-export const SyncPage = () => {
+export const LatestSyncCardPage = () => {
   const params = useParams();
   const id = params.id;
   const [records, setRecords] = useState<BaseSyncRecord[]>([]);

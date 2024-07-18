@@ -22,10 +22,10 @@ import { Dashboard } from "./components/dashboard";
 import { ErrorDisplay } from "./components/errorPage";
 import { PostForm } from "./components/postForm";
 import { PostPage } from "./components/postPage";
+import { LatestSyncCardPage } from "./components/latestSyncCardPage";
+import { SyncPostPage } from "./components/syncPostPage";
+import { SyncPostTable } from "./components/syncPostPage/SyncPostTable";
 import { mainListItems } from "./listItems";
-import { SyncPage } from "./components/syncPage";
-import { SyncPostPage } from "./components/syncPost";
-import { SyncPostTable } from "./components/syncPost/SyncPostTable";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
@@ -152,7 +152,10 @@ const App = () => {
                   <Route path="/posts" element={<PostPage />} />
                   <Route path="/posts/:id" element={<PostForm />} />
                   <Route path="/posts/new" element={<PostForm />} />
-                  <Route path="/posts/sync/:id" element={<SyncPage />} />
+                  <Route
+                    path="/posts/sync/:id"
+                    element={<LatestSyncCardPage />}
+                  />
                   <Route
                     path="/posts/sync/:id/list"
                     element={<SyncPostPage />}

@@ -399,8 +399,8 @@ impl ValidatedPostCreation {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RevertPostReq {
-    pub post_id: i64,
-    pub version: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub id: i64,
 }
 
 impl Validate for RevertPostReq {
@@ -409,12 +409,6 @@ impl Validate for RevertPostReq {
     type Error = ValidateManipulatePostError;
 
     fn validate(self) -> Result<Self::Item, Self::Error> {
-        if self.version.is_empty() {
-            return Err(ValidateManipulatePostError {
-                field: "version",
-                msg: "cannot be empty",
-            });
-        }
         Ok(self)
     }
 }

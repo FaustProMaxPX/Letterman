@@ -30,3 +30,7 @@ export interface SyncPageReq {
   pageSize: number;
   platform: Platform;
 }
+
+export interface RevertReq {
+  id: string;
+}
