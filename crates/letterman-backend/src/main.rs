@@ -92,6 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .route(post().to(create))
                             .route(put().to(update)),
                     )
+                    .service(resource("sync/revert").route(put().to(revert_post)))
                     .service(
                         scope("sync/{post_id}")
                             .service(resource("synchronize").route(put().to(synchronize)))
@@ -101,8 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .service(
                                 resource("records/latest").route(get().to(get_latest_sync_records)),
                             ),
-                    )
-                    .service(resource("sync").route(put().to(revert_post))),
+                    ),
             )
             .service(ping)
     })

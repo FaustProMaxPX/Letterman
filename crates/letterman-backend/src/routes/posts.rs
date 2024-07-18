@@ -189,7 +189,7 @@ pub(crate) async fn get_latest_sync_records(
 
 pub(crate) async fn revert_post(
     state: Data<State>,
-    req: Query<RevertPostReq>,
+    req: Json<RevertPostReq>,
 ) -> Result<HttpResponse, PostResponseError> {
     let req = req.into_inner().validate()?;
     PostReverter(req.post_id, req.version).execute(state.pool.clone()).await?;

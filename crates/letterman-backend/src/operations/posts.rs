@@ -123,8 +123,11 @@ impl DbAction for PostUpdater {
     ) -> Result<Self::Item, Self::Error> {
         let prev: BasePost = schema::t_post::table.find(self.0.id).first(conn)?;
         let prev_latest: BasePost = schema::t_post::table
-            .filter(schema::t_post::post_id.eq(prev.post_id))
-            .order_by(schema::t_post::version.desc())
+            .filter(
+                schema::t_post::post_id
+                    .eq(prev.post_id)
+                    .and(schema::t_post::head.eq(true)),
+            )
             .first(conn)?;
         if prev_latest.version != prev.version {
             return Err(UpdatePostError::NotLatestVersion);
@@ -448,6 +451,18 @@ impl DbAction for PostReverter {
                 .execute(conn)?;
             diesel::delete(schema::t_post_content::table)
                 .filter(schema::t_post_content::create_time.gt(&base.create_time))
+                .execute(conn)?;
+            diesel::update(t_post)
+                .filter(id.eq(base.id))
+                .set(head.eq(true))
+                .execute(conn)?;
+            diesel::update(schema::t_post_content::table)
+                .filter(
+                    schema::t_post_content::post_id
+                        .eq(base.post_id)
+                        .and(schema::t_post_content::version.eq(&base.version)),
+                )
+                .set(schema::t_post_content::head.eq(true))
                 .execute(conn)
         })?;
         Ok(())
