@@ -21,7 +21,7 @@ use routes::{
     common::ping,
     posts::{
         create, delete_post, force_pull, force_push, get_latest_sync_records, get_list, get_post,
-        get_sync_records, revert_post, synchronize, update,
+        get_post_history, get_sync_records, revert_post, synchronize, update,
     },
 };
 
@@ -87,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .route(get().to(get_post))
                             .route(delete().to(delete_post)),
                     )
+                    .service(resource("/{post_id}/history").route(get().to(get_post_history)))
                     .service(
                         resource("")
                             .route(post().to(create))

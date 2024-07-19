@@ -26,6 +26,7 @@ import { LatestSyncCardPage } from "./components/latestSyncCardPage";
 import { SyncPostPage } from "./components/syncPostPage";
 import { SyncPostTable } from "./components/syncPostPage/SyncPostTable";
 import { mainListItems } from "./listItems";
+import { PostHistoryPage } from "./components/historyPage";
 const drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
@@ -163,6 +164,10 @@ const App = () => {
                   <Route
                     path="/posts/sync/:postId/detail/:id"
                     element={<SyncPostTable />}
+                  />
+                  <Route
+                    path="/posts/history/:postId"
+                    element={<PostHistoryPage />}
                   />
                 </Routes>
               </ErrorBoundary>

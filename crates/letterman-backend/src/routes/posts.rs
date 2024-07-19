@@ -10,7 +10,7 @@ use r2d2::Pool;
 use crate::operations::posts::{
     BatchPostQueryerByPostIdAndVersion, LatestPostQueryerByPostIds, PagePostSyncRecordQueryer,
     PostCreator, PostDeleter, PostLatestSyncRecordQueryer, PostPageQueryer, PostQueryer,
-    PostReverter, PostUpdater,
+    PostQueryerByPostId, PostReverter, PostUpdater,
 };
 use crate::operations::remote;
 use crate::operations::remote::factory::SyncerFactory;
@@ -154,6 +154,19 @@ pub(crate) async fn force_push(
     )
     .await?;
     Ok(HttpResponse::Ok().json(CommonResult::<()>::success()))
+}
+
+pub(crate) async fn get_post_history(
+    state: Data<State>,
+    post_id: Path<i64>,
+    req: Query<PostPageReq>,
+) -> Result<HttpResponse, PostResponseError> {
+    let post_id = post_id.into_inner();
+    let req = req.into_inner().validate()?;
+    let history = PostQueryerByPostId(post_id, req)
+        .execute(state.pool.clone())
+        .await?;
+    Ok(HttpResponse::Ok().json(CommonResult::success_with_data(history)))
 }
 
 pub(crate) async fn get_sync_records(

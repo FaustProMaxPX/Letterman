@@ -4,6 +4,7 @@ import { BaseSyncRecord, CommonResult, Page, Post } from "../types";
 import {
   BaseSyncReq,
   CreatePostReq,
+  PageReq,
   QueryPostPageReq,
   RevertReq,
   SyncPageReq,
@@ -112,5 +113,16 @@ export const revertPost = async (req: RevertReq) => {
     `${BASE_URL}/api/post/sync/revert`,
     req
   );
+  return transformResponse(data);
+};
+
+export const getPostHistory = async (id: string, req: PageReq) => {
+  const data = await axios.get<CommonResult<Page<Post>>>(
+    `${BASE_URL}/api/post/${id}/history`,
+    { params: { page: req.page, pageSize: req.pageSize } }
+  );
+  data.data.data.data.forEach((record) => {
+    record.createTime = new Date(record.createTime);
+  });
   return transformResponse(data);
 };

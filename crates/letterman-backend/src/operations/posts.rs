@@ -358,6 +358,46 @@ impl DbAction for LatestPostQueryerByPostIds {
     }
 }
 
+pub struct PostQueryerByPostId(pub i64, pub PostPageReq);
+
+impl DbAction for PostQueryerByPostId {
+    type Item = Page<Post>;
+
+    type Error = QueryPostError;
+
+    fn db_action(self, conn: &mut MysqlConnection) -> Result<Self::Item, Self::Error> {
+        use schema::t_post::dsl::*;
+        let (bases, total) = t_post
+            .filter(post_id.eq(self.0))
+            .order_by(id.desc())
+            .paginate(self.1.page)
+            .page_size(self.1.page_size)
+            .load_and_count_pages::<BasePost>(conn)?;
+        use schema::t_post_content;
+        let content: Vec<PostContent> = t_post_content::table
+            .filter(t_post_content::post_id.eq(self.0))
+            .load(conn)?;
+        let content_map = content
+            .into_iter()
+            .map(|c| ((c.post_id, c.version.clone()), c))
+            .collect::<std::collections::HashMap<_, _>>();
+        let data = bases
+            .into_iter()
+            .map(|b| {
+                Post::package(
+                    b.clone(),
+                    content_map
+                        .get(&(b.post_id, b.version.clone()))
+                        .unwrap()
+                        .clone(),
+                )
+            })
+            .collect::<Vec<Post>>();
+        let len = data.len() as i32;
+        Ok(Page::new(total, self.1.page, data, len))
+    }
+}
+
 pub struct PagePostSyncRecordQueryer(pub i64, pub i32, pub i32, pub Platform);
 
 #[async_trait]

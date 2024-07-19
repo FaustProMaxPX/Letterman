@@ -10,9 +10,12 @@ export type UpdatePostReq = Omit<
   "createTime" | "version" | "preVersion" | "postId"
 >;
 
-export interface QueryPostPageReq {
+export interface PageReq {
   page: number;
   pageSize: number;
+}
+
+export interface QueryPostPageReq extends PageReq {
   all?: boolean;
 }
 

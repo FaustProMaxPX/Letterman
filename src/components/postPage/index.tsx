@@ -13,6 +13,7 @@ import { formatDate } from "../../utils/time-util";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { BasePage, PageContext } from "../common/page/Page";
 import { NavIconButton } from "../common/NavIconButton";
+import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
 const columns: GridColDef[] = [
   {
     field: "title",
@@ -59,6 +60,7 @@ const columns: GridColDef[] = [
     headerAlign: "center",
     flex: 1,
     align: "center",
+    disableColumnMenu: true,
     renderCell: (params) => (
       <OptionCell id={params.row.id} postId={params.row.postId} />
     ),
@@ -124,6 +126,9 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
       <NavIconButton aria-label="sync" path={`/posts/sync/${postId}`}>
         <SyncIcon />
       </NavIconButton>
+      <NavIconButton aria-label="history" path={`/posts/history/${postId}`}>
+        <ManageHistoryIcon />
+      </NavIconButton>
     </Box>
   );
 };
@@ -153,27 +158,6 @@ export const PostPage = () => {
           >
             创建新文章
           </Button>
-
-          {/* {!all && (
-            <Button
-              type="button"
-              variant="contained"
-              onClick={() => {
-                setAll(true);
-              }}
-            >
-              查询所有文章
-            </Button>
-          )}
-          {all && (
-            <Button
-              type="button"
-              variant="contained"
-              onClick={() => setAll(false)}
-            >
-              仅显示最新版文章
-            </Button>
-          )} */}
         </Box>
       </Box>
       <BasePage
