@@ -81,7 +81,12 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
         <VisibilityIcon />
       </NavIconButton>
       <IconButton type="button" onClick={() => setOpen(true)}>
-        <img width={20} height={20} alt="revert" src="/src/assets/revert.svg" />
+        <img
+          width={20}
+          height={20}
+          alt="revert"
+          src="/src/assets/revert.svg"
+        />
       </IconButton>
       <ConfirmDialog
         open={open}

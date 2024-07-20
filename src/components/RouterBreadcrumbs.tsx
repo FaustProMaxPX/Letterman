@@ -11,37 +11,31 @@ const LinkRouter = (props: LinkRouterProps) => {
   return <Link {...props} component={RouterLink} />;
 };
 
-const getBreadcrumbName = (to: string) => {
-  const pathNames = Object.keys(BREADCRUMB_NAME_MAP);
-  
-  for (const path of pathNames) {
-    if (path == to) {
-      return BREADCRUMB_NAME_MAP[path];
-    }
-    const match = path.match(/\/:([^/]+)/);
-    const segment = path.split("/:")[0];
-    
-    if (match && to.startsWith(segment)) {
-
-      return BREADCRUMB_NAME_MAP[path];
+const getBreadcrumbName = (pathname: string) => {
+  for (const route in BREADCRUMB_NAME_MAP) {
+    const regex = new RegExp(`^${route.replace(/:[^\s/]+/g, "\\d+")}$`);
+    if (regex.test(pathname)) {
+      return BREADCRUMB_NAME_MAP[route];
     }
   }
-  return to;
+  return null;
 };
 
 export const RouterBreadcurmbs = () => {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
-
+  const getPathname = (index: number) => {
+    return `/${pathnames.slice(0, index + 1).join("/")}`;
+  };
   return (
     <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 1 }}>
       <LinkRouter underline="hover" color="inherit" to="/">
         Home
       </LinkRouter>
-      {pathnames.map((_value, index) => {
+      {/* {pathnames.map((_value, index) => {
         const last = index === pathnames.length - 1;
         const to = `/${pathnames.slice(0, index + 1).join("/")}`;
-        
+
         return last ? (
           <Typography color="text.primary" key={to}>
             {getBreadcrumbName(to)}
@@ -51,6 +45,24 @@ export const RouterBreadcurmbs = () => {
             {getBreadcrumbName(to)}
           </LinkRouter>
         );
+      })} */}
+      {pathnames.map((value, index) => {
+        const to = getPathname(index);
+        const breadcrumbName = getBreadcrumbName(to);
+        const isLast = index === pathnames.length - 1;
+
+        if (breadcrumbName) {
+          return isLast ? (
+            <Typography color="text.primary" key={to}>
+              {breadcrumbName}
+            </Typography>
+          ) : (
+            <LinkRouter underline="hover" color="inherit" key={to} to={to}>
+              {breadcrumbName}
+            </LinkRouter>
+          );
+        }
+        return null;
       })}
     </Breadcrumbs>
   );

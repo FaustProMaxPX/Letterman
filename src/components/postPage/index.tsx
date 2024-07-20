@@ -1,5 +1,6 @@
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
 import SyncIcon from "@mui/icons-material/Sync";
 import { Box, Button, IconButton, Typography } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
@@ -11,9 +12,8 @@ import { deletePost, getPostPage } from "../../services/postsService";
 import { formatErrorMessage } from "../../services/utils/transform-response";
 import { formatDate } from "../../utils/time-util";
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { BasePage, PageContext } from "../common/page/Page";
 import { NavIconButton } from "../common/NavIconButton";
-import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
+import { BasePage, PageContext } from "../common/page/Page";
 const columns: GridColDef[] = [
   {
     field: "title",
@@ -32,11 +32,6 @@ const columns: GridColDef[] = [
       return content.length > 20 ? content.slice(0, 20) + "..." : content;
     },
   },
-  // {
-  //   field: "metadata",
-  //   headerName: "元数据",
-  //   minWidth: 200,
-  // },
   {
     field: "version",
     headerName: "版本",
@@ -126,7 +121,11 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
       <NavIconButton aria-label="sync" path={`/posts/sync/${postId}`}>
         <SyncIcon />
       </NavIconButton>
-      <NavIconButton aria-label="history" path={`/posts/history/${postId}`}>
+      <NavIconButton
+        sx={{ color: "#6A5ACD" }}
+        aria-label="history"
+        path={`/posts/history/${postId}`}
+      >
         <ManageHistoryIcon />
       </NavIconButton>
     </Box>
@@ -134,10 +133,7 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
 };
 
 export const PostPage = () => {
-  // const [all, setAll] = useState(false);
   const navigate = useNavigate();
-  // const attributes = new Map();
-  // attributes.set("all", all);
   return (
     <Box
       sx={{

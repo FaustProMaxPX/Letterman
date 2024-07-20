@@ -12,9 +12,12 @@ export const DEFAULT_PAGE_SIZE = 10;
 export const BREADCRUMB_NAME_MAP: { [key: string]: string } = {
   "/": "Home",
   "/posts": "Posts",
-  "/posts/sync/:id": "Sync",
-  "/posts/:id": "Edit",
   "/posts/new": "New",
+  "/posts/:id": "Edit",
+  "/posts/sync/:id": "Latest Sync",
+  "/posts/sync/:id/list": "Sync",
+  "/posts/sync/:postId/detail/:id": "Sync Detail",
+  "/posts/history/:postId": "History",
 };
 
 export const PLATFORM_SET = [Platform.Github];
