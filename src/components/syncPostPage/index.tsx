@@ -26,6 +26,7 @@ import { BasePage } from "../common/page/Page";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import useMessage from "../../hooks/useMessage";
 import { formatErrorMessage } from "../../services/utils/transform-response";
+import { RouterBreadcurmbs } from "../RouterBreadcrumbs";
 const columns: GridColDef[] = [
   {
     field: "version",
@@ -155,8 +156,9 @@ export const SyncPostPage = () => {
         overflow: "hidden",
       }}
     >
+      <RouterBreadcurmbs />
       <Box display={"flex"} justifyContent="space-between" mt={1} mb={2}>
-        <Typography variant="h5">历史文章列表</Typography>
+        <Typography variant="h5">历史同步记录</Typography>
         <FormControl size="small">
           <InputLabel id="platform-inputlabel">Platform</InputLabel>
           <Select

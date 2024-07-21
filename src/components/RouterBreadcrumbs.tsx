@@ -32,21 +32,8 @@ export const RouterBreadcurmbs = () => {
       <LinkRouter underline="hover" color="inherit" to="/">
         Home
       </LinkRouter>
-      {/* {pathnames.map((_value, index) => {
-        const last = index === pathnames.length - 1;
-        const to = `/${pathnames.slice(0, index + 1).join("/")}`;
 
-        return last ? (
-          <Typography color="text.primary" key={to}>
-            {getBreadcrumbName(to)}
-          </Typography>
-        ) : (
-          <LinkRouter underline="hover" color="inherit" to={to} key={to}>
-            {getBreadcrumbName(to)}
-          </LinkRouter>
-        );
-      })} */}
-      {pathnames.map((value, index) => {
+      {pathnames.map((_value, index) => {
         const to = getPathname(index);
         const breadcrumbName = getBreadcrumbName(to);
         const isLast = index === pathnames.length - 1;

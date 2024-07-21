@@ -14,6 +14,7 @@ import { formatDate } from "../../utils/time-util";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { NavIconButton } from "../common/NavIconButton";
 import { BasePage, PageContext } from "../common/page/Page";
+import { RouterBreadcurmbs } from "../RouterBreadcrumbs";
 const columns: GridColDef[] = [
   {
     field: "title",
@@ -144,6 +145,7 @@ export const PostPage = () => {
         overflow: "hidden",
       }}
     >
+      <RouterBreadcurmbs />
       <Box display={"flex"} justifyContent={"space-between"} mt={1} mb={2}>
         <Typography variant="h5">文章列表</Typography>
         <Box display={"flex"} justifyContent={"flex-end"} gap={1}>

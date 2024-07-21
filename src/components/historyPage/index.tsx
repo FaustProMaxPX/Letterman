@@ -11,6 +11,7 @@ import { useState } from "react";
 import useMessage from "../../hooks/useMessage";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { NotFoundDisplay } from "../common/NotFoundDisplay";
+import { RouterBreadcurmbs } from "../RouterBreadcrumbs";
 
 const columns: GridColDef[] = [
   {
@@ -81,12 +82,7 @@ const OptionCell = ({ id, postId }: { id: string; postId: string }) => {
         <VisibilityIcon />
       </NavIconButton>
       <IconButton type="button" onClick={() => setOpen(true)}>
-        <img
-          width={20}
-          height={20}
-          alt="revert"
-          src="/src/assets/revert.svg"
-        />
+        <img width={20} height={20} alt="revert" src="/src/assets/revert.svg" />
       </IconButton>
       <ConfirmDialog
         open={open}
@@ -123,6 +119,7 @@ export const PostHistoryPage = () => {
         overflow: "hidden",
       }}
     >
+      <RouterBreadcurmbs />
       <Typography variant="h5" sx={{ mt: 1, mb: 2 }}>
         文章历史记录
       </Typography>

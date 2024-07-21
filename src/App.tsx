@@ -17,7 +17,6 @@ import { useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Notification from "./components/Notification";
-import { RouterBreadcurmbs } from "./components/RouterBreadcrumbs";
 import { Dashboard } from "./components/dashboard";
 import { ErrorDisplay } from "./components/errorPage";
 import { PostForm } from "./components/postForm";
@@ -145,7 +144,6 @@ const App = () => {
           >
             <Toolbar />
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4, height: "80%" }}>
-              <RouterBreadcurmbs />
               <Notification />
               <ErrorBoundary FallbackComponent={ErrorDisplay}>
                 <Routes>

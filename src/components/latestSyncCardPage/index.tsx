@@ -21,6 +21,7 @@ import { BaseSyncRecord, Platform } from "../../types";
 import { LoadingDisplay } from "../common/LoadingDisplay";
 import { SyncAccordionDetail } from "./SyncAccordionDetails";
 import { SyncButtonGroup } from "./SyncButtonGroup";
+import { RouterBreadcurmbs } from "../RouterBreadcrumbs";
 
 export const LatestSyncCardPage = () => {
   const params = useParams();
@@ -51,6 +52,7 @@ export const LatestSyncCardPage = () => {
 
   return (
     <>
+      <RouterBreadcurmbs />
       <Box display={"flex"} justifyContent={"space-between"} sx={{ mt: 1 }}>
         <Typography variant="h5">最近同步记录</Typography>
         <Button
