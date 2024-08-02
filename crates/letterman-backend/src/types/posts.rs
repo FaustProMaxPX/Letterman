@@ -37,7 +37,7 @@ pub struct Post {
     post_id: i64,
     title: String,
     #[serde(serialize_with = "serialize_metadata")]
-    metadata: HashMap<String, String>,
+    metadata: HashMap<String, Vec<String>>,
     content: String,
     version: String,
     pre_version: String,
@@ -50,7 +50,7 @@ impl Post {
         id: i64,
         post_id: i64,
         title: String,
-        metadata: HashMap<String, String>,
+        metadata: HashMap<String, Vec<String>>,
         content: String,
         version: String,
         pre_version: String,
@@ -75,7 +75,7 @@ impl Post {
             id: base.id,
             post_id: base.post_id,
             title: base.title,
-            metadata: serde_json::from_str(&base.metadata).unwrap(),
+            metadata: convert_metadata(&base.metadata),
             content: content.content,
             version: base.version,
             pre_version: base.prev_version,
@@ -121,7 +121,7 @@ impl Post {
         (base, content)
     }
 
-    pub fn metadata(&self) -> &HashMap<String, String> {
+    pub fn metadata(&self) -> &HashMap<String, Vec<String>> {
         &self.metadata
     }
 
@@ -141,7 +141,7 @@ impl From<(InsertableBasePost, InsertablePostContent)> for Post {
             id: base.id,
             post_id: base.post_id,
             title: base.title,
-            metadata: serde_json::from_str(&base.metadata).unwrap(),
+            metadata: convert_metadata(&base.metadata),
             content: content.content,
             version: base.version,
             pre_version: base.prev_version,
@@ -609,4 +609,35 @@ impl From<diesel::result::Error> for RevertPostError {
             _ => RevertPostError::Database,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum YamlValue {
+    Single(String),
+    Multiple(Vec<String>),
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+}
+
+impl From<YamlValue> for Vec<String> {
+    fn from(val: YamlValue) -> Self {
+        match val {
+            YamlValue::Single(s) => vec![s],
+            YamlValue::Multiple(vec) => vec,
+            YamlValue::Bool(b) => vec![b.to_string()],
+            YamlValue::Int(i) => vec![i.to_string()],
+            YamlValue::Float(f) => vec![f.to_string()],
+        }
+    }
+}
+
+fn convert_metadata(metadata: &str) -> HashMap<String, Vec<String>> {
+    let metadata = serde_yaml::from_str::<HashMap<String, YamlValue>>(metadata).unwrap();
+    let mut ret = HashMap::new();
+    for (k, v) in metadata {
+        ret.insert(k, v.into());
+    }
+    ret
 }

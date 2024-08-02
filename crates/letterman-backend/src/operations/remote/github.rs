@@ -124,7 +124,7 @@ impl SyncAction for GithubSyncer {
             return Ok(None);
         }
         let content = content.unwrap();
-        let res = extract(&content.content)?;
+        let res = extractor::extract(&content.content)?;
         let title = if let Some(title) = res.title {
             title
         } else {
@@ -305,86 +305,70 @@ impl GithubSyncer {
 struct ExtractResult {
     title: Option<String>,
     content: String,
-    metadata: HashMap<String, String>,
+    metadata: HashMap<String, Vec<String>>,
 }
 
 /// package markdown content with metadata
 fn package(post: &Post) -> Result<String, serde_yaml::Error> {
     let mut metadata = HashMap::new();
 
-    metadata.insert("title".to_string(), post.title().to_string());
+    metadata.insert("title".to_string(), vec![post.title().to_string()]);
     metadata.extend(post.metadata().clone());
     let frontmatter = serde_yaml::to_string(&metadata)?;
     let content = format!("---\n{}\n---\n{}", frontmatter, post.content());
     Ok(content)
 }
 
-/// extract metadata from content
-/// return (title, content, metadata)
-fn extract(content: &str) -> Result<ExtractResult, markdown::message::Message> {
-    let constructs = Constructs {
-        frontmatter: true,
-        ..Constructs::default()
-    };
-    let ast = markdown::to_mdast(
-        content,
-        &markdown::ParseOptions {
-            constructs,
-            ..markdown::ParseOptions::default()
-        },
-    )?;
-    // TODO: 无法解析数组格式的YAML
-    let content = {
-        if let Some(idx) = content.find("---") {
-            if let Some(idx2) = content[idx + 3..].find("---") {
-                &content[idx + idx2 + 6..]
+mod extractor {
+
+    use crate::types::posts::YamlValue;
+
+    use super::*;
+
+    /// extract metadata from content
+    /// return (title, content, metadata)
+    pub(crate) fn extract(content: &str) -> Result<ExtractResult, markdown::message::Message> {
+        let (metadata, idx) = {
+            if let Some(start) = content.find("---") {
+                if let Some(end) = content[start + 3..].find("---") {
+                    let metadata = &content[start + 3..start + 3 + end];
+                    (Some(metadata), start + 3 + end + 4)
+                } else {
+                    (None, 0)
+                }
             } else {
-                content
+                (None, 0)
             }
+        };
+
+        let content = &content[idx..];
+
+        if let Some(metadata) = metadata {
+            let mut metadata: HashMap<String, YamlValue> =
+                serde_yaml::from_str(metadata.trim()).unwrap();
+            let title = metadata
+                .get("title")
+                .map(|v| match v {
+                    YamlValue::Single(s) => Some(s.to_string()),
+                    YamlValue::Multiple(vec) => vec.first().map(|s| s.to_string()),
+                    _ => None,
+                })
+                .unwrap_or(None);
+            metadata.remove("title");
+            Ok(ExtractResult {
+                title,
+                content: content.to_string(),
+                metadata: metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            })
         } else {
-            content
+            Ok(ExtractResult {
+                title: None,
+                content: content.to_string(),
+                metadata: HashMap::new(),
+            })
         }
-    };
-
-    if let Some(children) = ast.children() {
-        let mut metadata = HashMap::new();
-        for child in children {
-            let map = extract_metadata(child);
-            if let Some(map) = map {
-                metadata.extend(map);
-                break;
-            }
-        }
-        let title = metadata.get("title").map(|t| t.to_string());
-        metadata.remove("title");
-        Ok(ExtractResult {
-            title,
-            content: content.to_string(),
-            metadata,
-        })
-    } else {
-        Ok(ExtractResult {
-            title: None,
-            content: content.to_string(),
-            metadata: HashMap::new(),
-        })
     }
-}
-
-fn extract_metadata(node: &Node) -> Option<HashMap<String, String>> {
-    if let Node::Yaml(markdown::mdast::Yaml { value, .. }) = node {
-        let mut metadata = HashMap::new();
-        let lines = value.split('\n');
-        for line in lines {
-            let mut split = line.splitn(2, ':'); // 使用 splitn 限制拆分次数为 2
-            if let (Some(key), Some(value)) = (split.next(), split.next()) {
-                metadata.insert(key.trim().to_string(), value.trim().to_string());
-            }
-        }
-        Some(metadata)
-    } else {
-        None
-    }
+    
 }
 
 #[derive(Debug, Clone, Error)]
@@ -610,35 +594,20 @@ mod github_sync_test {
 
     #[test]
     fn extract_test() {
-        let content: &'static str = "---
-title: Remake | CS50 AI入门笔记
+        let content = r#"
+---
+title: "Remake CS50 AI入门笔记"
 top: false
 toc: true
 mathjax: true
-date: 2022-07-02 17:02:19
-password:
-summary:
 tags:
     - 人工智能
 categories:
     - Remake
 ---
-
-# Introduction  to  AI
-";
-        let constructs = Constructs {
-            frontmatter: true,
-            ..Constructs::default()
-        };
-        let ast = markdown::to_mdast(
-            content,
-            &markdown::ParseOptions {
-                constructs,
-                ..markdown::ParseOptions::default()
-            },
-        )
-        .unwrap();
-        println!("{:#?}", ast);
+    "#;
+        let extract = extractor::extract(content).unwrap();
+        println!("{:#?}", extract)
         // let res = extract(content);
         // println!("{:#?}", res.unwrap())
     }

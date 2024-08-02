@@ -130,7 +130,7 @@ where
     s.parse::<i64>().map_err(serde::de::Error::custom)
 }
 
-fn serialize_metadata<S>(x: &HashMap<String, String>, s: S) -> Result<S::Ok, S::Error>
+fn serialize_metadata<S>(x: &HashMap<String, Vec<String>>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

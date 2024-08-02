@@ -61,12 +61,12 @@ pub mod sha_utils {
         sha(&input)
     }
 
-    pub fn sha_post2(title: &str, metadata: &HashMap<String, String>, content: &str) -> String {
-        let metadata = metadata
-            .iter()
-            .map(|(k, v)| format!("{}:{}", k, v))
-            .fold("---\n".to_string(), |a, s| format!("{}\n{}", a, s))
-            + "\n---";
+    pub fn sha_post2(
+        title: &str,
+        metadata: &HashMap<String, Vec<String>>,
+        content: &str,
+    ) -> String {
+        let metadata = serde_yaml::to_string(metadata).unwrap();
         let input = format!("{}\n{}\n{}", metadata, title, content);
         sha(&input)
     }
@@ -74,7 +74,7 @@ pub mod sha_utils {
     #[test]
     fn sha_post_test() {
         let mut map = HashMap::new();
-        map.insert("a".to_string(), "b".to_string());
+        map.insert("a".to_string(), vec!["1".to_string()]);
         let title = "aaa";
         let content = "test";
         let sha1 = sha_post2(title, &map, content);
@@ -85,6 +85,7 @@ pub mod sha_utils {
 
     #[test]
     fn base64_test() {
-        base64::prelude::BASE64_STANDARD.decode("LS0tCnkxOiAnMScKdGl0bGU6IOi/meaYr+S4gOevh+a1i+ivleaWh+eroAoKLS0tCgojIFRFU1QKCua1i+ivleS4gOS4i1BVTEwKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=").unwrap();        
+        base64::prelude::BASE64_STANDARD.decode("LS0tCnkxOiAnMScKdGl0bGU6IOi/meaYr+S4gOevh+a1i+ivleaWh+eroAoKLS0tCgojIFRFU1QKCua1i+ivleS4gOS4i1BVTEwKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=").unwrap();
     }
 }
+
